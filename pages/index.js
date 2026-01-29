@@ -443,11 +443,31 @@ export default function Home() {
                                         <Box component="ul" sx={{ m: 0, pl: 2 }}>
                                             <Box component="li">
                                                 <strong>Source:</strong> 
-                                                <Typography component="span" variant="caption" sx={{ ml: 1, px: 1, py: 0.5, bgcolor: 'action.selected', borderRadius: 1 }}>
+                                                <Typography 
+                                                  component="a" 
+                                                  href={googleBooksData[book.title].canonicalVolumeLink} 
+                                                  target="_blank" 
+                                                  rel="noopener noreferrer"
+                                                  variant="caption" 
+                                                  sx={{ 
+                                                    ml: 1, 
+                                                    px: 1, 
+                                                    py: 0.5, 
+                                                    bgcolor: 'action.selected', 
+                                                    borderRadius: 1,
+                                                    textDecoration: 'none',
+                                                    color: 'text.primary',
+                                                    transition: 'background-color 0.2s',
+                                                    '&:hover': {
+                                                      bgcolor: 'action.focus', 
+                                                      cursor: 'pointer'
+                                                    }
+                                                  }}
+                                                >
                                                     {googleBooksData[book.title].source || 'Google Books'}
                                                 </Typography>
                                             </Box>
-                                            <Box component="li"><strong>Title:</strong> <a href={googleBooksData[book.title].canonicalVolumeLink} target="_blank" rel="noopener noreferrer">{googleBooksData[book.title].title}</a></Box>
+                                            <Box component="li"><strong>Title:</strong> {googleBooksData[book.title].title}</Box>
                                             <Box component="li"><strong>Authors:</strong> {Array.isArray(googleBooksData[book.title].authors) ? googleBooksData[book.title].authors.join(', ') : googleBooksData[book.title].authors}</Box>
                                             <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn || 'N/A'}</Box>
                                             <Box component="li"><strong>Publisher:</strong> {googleBooksData[book.title].publisher}</Box>
