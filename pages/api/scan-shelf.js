@@ -43,7 +43,7 @@ export default async function handler(req, res) {
     const parts = [];
     
     // Prompt structure
-    parts.push({ text: "Please look at these images of a bookshelf. I will provide the image filename before each image part. Extract a list of all the visible books. Return a strictly valid JSON list of objects. Each object must have 'title', 'author', and 'sources' keys. 'sources' must be an array of strings listing the filename(s) of the image(s) where this specific book was detected. Combine duplicates: if a book is found in multiple images, create one object for it and list all corresponding image filenames in 'sources'. Do not return markdown formatting, just the raw JSON." });
+    parts.push({ text: "Please look at these images of a bookshelf. I will provide the image filename before each image part. Extract a list of all the visible books. Return a strictly valid JSON list of objects. Each object must have 'title', 'author', and 'sources' keys. 'sources' must be an array of strings listing the filename(s) of the image(s) where this specific book was detected. Combine duplicates: if a book is found in multiple images, create one object for it and list all corresponding image filenames in 'sources'. Pay close attention to author names: if a cover shows multiple names separated by hyphens, dots, or line breaks (e.g., 'Allen - Gibson'), interpret them as distinct authors (e.g., 'Allen, Gibson') rather than a single compound name. Do not return markdown formatting, just the raw JSON." });
 
     for (const file of imageFiles) {
       const filePath = path.join(targetDir, file);

@@ -20,9 +20,10 @@ export default async function handler(req, res) {
     const prompt = `
       Search for and provide the following details for the book "${title}" by "${author || 'Unknown'}".
       You must perform a search to find the most accurate and complete information, specifically the ISBN and Publisher.
+      If the provided author appears to be multiple people (e.g. separated by hyphens, 'and', '&', or just spaces on the cover), verify the correct list of authors.
       
       Details required:
-      - Author(s)
+      - Author(s) (Return as an array of strings)
       - ISBN (prefer 13-digit, otherwise 10-digit)
       - Publisher
       - Publication year or date
