@@ -89,13 +89,13 @@ export default function Home() {
   return (
     <>
       <Head>
-        <title>Bookshelf Scanner</title>
+        <title>Elliott Home Organizer</title>
         <meta name="description" content="Scan bookshelves and get details" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <div className={styles.page}>
         <main className={styles.main}>
-          <h1>Bookshelf Scanner</h1>
+          <h1>Elliott Home Organizer</h1>
           
           <div style={{ marginBottom: '2rem', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
             <h2>Step 1: Select Location</h2>
