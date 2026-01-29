@@ -186,12 +186,24 @@ export default function Home() {
 
       if (!googleBooksData[book.title]) {
         try {
-            const res = await fetch('/api/google-books', {
+            let res = await fetch('/api/google-books', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: book.title, author: book.author }),
             });
-            const details = await res.json();
+            let details = await res.json();
+
+            // Retry with just title if author search failed
+            if (details.error && book.author) {
+                console.log(`Retrying Google Books search for "${book.title}" without author`);
+                res = await fetch('/api/google-books', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ title: book.title }), 
+                });
+                details = await res.json();
+            }
+
             setGoogleBooksData(prev => ({ ...prev, [book.title]: details }));
         } catch (e) {
             console.error("Failed to fetch Google Books data", book.title);
