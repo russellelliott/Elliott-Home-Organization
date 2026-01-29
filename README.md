@@ -25,6 +25,8 @@ Ensure these keys are defined in your environment variables (`.env` or `.env.loc
 
 Google Drive: https://drive.google.com/drive/u/0/folders/1urR9SDoRMd7VVGb4Uy1K-2HVrme9WmEC
 
+Firebase: https://console.firebase.google.com/u/0/project/elliott-home-organization/overview
+
 ## Running the Application
 
 This application is designed to be **hosted locally**. It relies on access to the local file system to scan the library images.
