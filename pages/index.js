@@ -41,7 +41,9 @@ export default function Home() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
   const [enriching, setEnriching] = useState(false);
+  const [fetchingGoogle, setFetchingGoogle] = useState(false);
   const [enrichedData, setEnrichedData] = useState({});
+  const [googleBooksData, setGoogleBooksData] = useState({});
   const [gpsData, setGpsData] = useState(null);
   const [extractingGps, setExtractingGps] = useState(false);
 
@@ -163,27 +165,42 @@ export default function Home() {
 
   const handleEnrich = async () => {
     setEnriching(true);
-    // Don't clear old enriched data, just add to it
+    setFetchingGoogle(true);
     
     // Process in batches
     for (const book of books) {
-      if (enrichedData[book.title]) continue; // Skip if already done
+      if (!enrichedData[book.title]) {
+        try {
+          const res = await fetch('/api/enrich-book', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title: book.title, author: book.author }),
+          });
+          const details = await res.json();
+          setEnrichedData(prev => ({ ...prev, [book.title]: details }));
+        } catch (e) {
+          console.error("Failed to enrich", book.title);
+          setEnrichedData(prev => ({ ...prev, [book.title]: { error: true } }));
+        }
+      }
 
-      try {
-        const res = await fetch('/api/enrich-book', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ title: book.title, author: book.author }),
-        });
-        const details = await res.json();
-        
-        setEnrichedData(prev => ({ ...prev, [book.title]: details }));
-      } catch (e) {
-        console.error("Failed to enrich", book.title);
-        setEnrichedData(prev => ({ ...prev, [book.title]: { error: true } }));
+      if (!googleBooksData[book.title]) {
+        try {
+            const res = await fetch('/api/google-books', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ title: book.title, author: book.author }),
+            });
+            const details = await res.json();
+            setGoogleBooksData(prev => ({ ...prev, [book.title]: details }));
+        } catch (e) {
+            console.error("Failed to fetch Google Books data", book.title);
+            setGoogleBooksData(prev => ({ ...prev, [book.title]: { error: true } })); 
+        }
       }
     }
     setEnriching(false);
+    setFetchingGoogle(false);
   };
 
   if (authLoading) return (
@@ -341,12 +358,14 @@ export default function Home() {
             <Card>
               <CardContent>
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
-                  <Typography variant="h6">
-                    Step 2: Review & Enrich
-                  </Typography>
-                  <Typography variant="subtitle2" color="text.secondary">
-                    Found {books.length} books
-                  </Typography>
+                  <Box>
+                    <Typography variant="h6">
+                        Step 2: Review & Enrich
+                    </Typography>
+                    <Typography variant="subtitle2" color="text.secondary">
+                        Found {books.length} books
+                    </Typography>
+                  </Box>
                   <Button 
                     variant="contained" 
                     color="secondary"
@@ -366,6 +385,7 @@ export default function Home() {
                         <TableCell>Detected Author</TableCell>
                         <TableCell>Image Source</TableCell>
                         <TableCell>Details (Perplexity)</TableCell>
+                        <TableCell>Details (Google Books)</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -394,6 +414,30 @@ export default function Home() {
                                 {enriching ? 'Pending...' : '-'}
                               </Typography>
                             )}
+                          </TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                             {googleBooksData[book.title] ? (
+                                googleBooksData[book.title].error ? (
+                                    <Alert severity="warning" size="small">Book not found</Alert>
+                                ) : (
+                                    <Box display="flex" gap={2}>
+                                        {googleBooksData[book.title].thumbnail && (
+                                            <img src={googleBooksData[book.title].thumbnail} alt="Cover" style={{ width: '60px', height: 'auto', alignSelf: 'flex-start' }} />
+                                        )}
+                                        <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                                            <Box component="li"><strong>Title:</strong> <a href={googleBooksData[book.title].canonicalVolumeLink} target="_blank" rel="noopener noreferrer">{googleBooksData[book.title].title}</a></Box>
+                                            <Box component="li"><strong>Authors:</strong> {googleBooksData[book.title].authors.join(', ')}</Box>
+                                            <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn}</Box>
+                                            <Box component="li"><strong>Publisher:</strong> {googleBooksData[book.title].publisher}</Box>
+                                            <Box component="li"><strong>Date:</strong> {googleBooksData[book.title].publishedDate}</Box>
+                                        </Box>
+                                    </Box>
+                                )
+                             ) : (
+                                <Typography variant="body2" color="text.secondary">
+                                    {fetchingGoogle ? 'Pending...' : '-'}
+                                </Typography>
+                             )}
                           </TableCell>
                         </TableRow>
                       ))}
