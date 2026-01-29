@@ -32,26 +32,45 @@ export default async function handler(req, res) {
       Do not include any other text or markdown formatting.
     `;
 
-    const response = await perplexity.chat.completions.create({
-      model: "sonar-pro",
-      messages: [
-        { role: "system", content: "You are a helpful bibliophile assistant who outputs only strict JSON." },
-        { role: "user", content: prompt },
-      ],
-    });
+    let attempts = 0;
+    const maxAttempts = 3;
+    let lastError = null;
 
-    const content = response.choices[0].message.content;
-    const cleanContent = content.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        const response = await perplexity.chat.completions.create({
+          model: "sonar-pro",
+          messages: [
+            { role: "system", content: "You are a helpful bibliophile assistant who outputs only strict JSON." },
+            { role: "user", content: prompt },
+          ],
+        });
 
-    let details = {};
-    try {
-        details = JSON.parse(cleanContent);
-    } catch (e) {
-        console.error("Failed to parse Perplexity JSON", content);
-        details = { error: "Failed to parse details", raw: content };
+        const content = response.choices[0].message.content;
+        
+        // More robust JSON extraction
+        let jsonStr = content;
+        const start = content.indexOf('{');
+        const end = content.lastIndexOf('}');
+        
+        if (start !== -1 && end !== -1) {
+          jsonStr = content.substring(start, end + 1);
+        }
+
+        const details = JSON.parse(jsonStr);
+        return res.status(200).json(details);
+      } catch (e) {
+        console.error(`Attempt ${attempts} failed:`, e.message);
+        lastError = e;
+        if (attempts === maxAttempts) break;
+        // Wait a short delay before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
     }
 
-    res.status(200).json(details);
+    console.error("Failed to fetch/parse Perplexity JSON after retries");
+    return res.status(200).json({ error: "Failed to fetch details", details: lastError?.message });
 
   } catch (error) {
     console.error("Perplexity API Error:", error);
