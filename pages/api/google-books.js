@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     if (data.items && data.items.length > 0) {
         const book = data.items[0].volumeInfo;
         const result = {
+            source: 'Google Books',
             title: book.title,
             authors: book.authors || [],
             publisher: book.publisher,
@@ -40,9 +41,59 @@ export default async function handler(req, res) {
                   book.industryIdentifiers?.find(id => id.type === "ISBN_10")?.identifier
         };
         return res.status(200).json(result);
-    } else {
-        return res.status(200).json({ error: "No books found" });
+    } 
+    
+    // Fallback: Open Library API
+    console.log(`Google Books found no results for "${title}". Trying Open Library...`);
+    
+    let olQuery = `title=${encodeURIComponent(title)}`;
+    if (author && author !== 'Unknown') {
+        olQuery += `&author=${encodeURIComponent(author)}`;
     }
+
+    const olUrl = `https://openlibrary.org/search.json?${olQuery}&limit=1`;
+    const olResponse = await fetch(olUrl);
+    const olData = await olResponse.json();
+
+    if (olData.docs && olData.docs.length > 0) {
+        const book = olData.docs[0];
+        const result = {
+            source: 'Open Library',
+            title: book.title,
+            authors: book.author_name || [],
+            publisher: book.publisher ? book.publisher[0] : null,
+            publishedDate: book.first_publish_year ? book.first_publish_year.toString() : null,
+            description: null, 
+            pageCount: book.number_of_pages_median || null,
+            categories: book.subject ? book.subject.slice(0, 3) : [],
+            thumbnail: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : null,
+            infoLink: `https://openlibrary.org${book.key}`,
+            canonicalVolumeLink: `https://openlibrary.org${book.key}`,
+            isbn: book.isbn ? book.isbn[0] : null
+        };
+
+        // Try to fetch description from the Works API
+        if (book.key) {
+             try {
+                const workRes = await fetch(`https://openlibrary.org${book.key}.json`);
+                if (workRes.ok) {
+                    const workData = await workRes.json();
+                    if (workData.description) {
+                         result.description = typeof workData.description === 'string' 
+                            ? workData.description 
+                            : workData.description.value;
+                    }
+                }
+             } catch (err) {
+                 console.error("Open Library Work fetch failed", err);
+             }
+        }
+
+        return res.status(200).json(result);
+    }
+
+    return res.status(200).json({ error: "No books found" });
+
 
   } catch (error) {
     console.error("Google Books API Error:", error);

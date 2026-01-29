@@ -434,13 +434,19 @@ export default function Home() {
                           <TableCell sx={{ verticalAlign: 'top' }}>
                              {googleBooksData[book.title] ? (
                                 googleBooksData[book.title].error ? (
-                                    <Alert severity="warning" size="small">error in finding book in Google Books database</Alert>
+                                    <Alert severity="warning" size="small">Book not found in any database</Alert>
                                 ) : (
                                     <Box display="flex" gap={2}>
                                         {googleBooksData[book.title].thumbnail && (
                                             <img src={googleBooksData[book.title].thumbnail} alt="Cover" style={{ width: '60px', height: 'auto', alignSelf: 'flex-start' }} />
                                         )}
                                         <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                                            <Box component="li">
+                                                <strong>Source:</strong> 
+                                                <Typography component="span" variant="caption" sx={{ ml: 1, px: 1, py: 0.5, bgcolor: 'action.selected', borderRadius: 1 }}>
+                                                    {googleBooksData[book.title].source || 'Google Books'}
+                                                </Typography>
+                                            </Box>
                                             <Box component="li"><strong>Title:</strong> <a href={googleBooksData[book.title].canonicalVolumeLink} target="_blank" rel="noopener noreferrer">{googleBooksData[book.title].title}</a></Box>
                                             <Box component="li"><strong>Authors:</strong> {googleBooksData[book.title].authors.join(', ')}</Box>
                                             <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn}</Box>
