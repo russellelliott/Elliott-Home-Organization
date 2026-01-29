@@ -1,9 +1,38 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
-import styles from '@/styles/Home.module.css';
 import { auth, db } from '../lib/firebase';
 import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
+import {
+  AppBar,
+  Toolbar,
+  Typography,
+  Button,
+  Container,
+  Box,
+  Select,
+  MenuItem,
+  Card,
+  CardContent,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  Avatar,
+  CircularProgress,
+  FormControl,
+  InputLabel,
+  Stack,
+  Alert
+} from '@mui/material';
+import GoogleIcon from '@mui/icons-material/Google';
+import SearchIcon from '@mui/icons-material/Search';
+import LocationOnIcon from '@mui/icons-material/LocationOn';
+import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
+import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -16,6 +45,7 @@ export default function Home() {
   const [gpsData, setGpsData] = useState(null);
   const [extractingGps, setExtractingGps] = useState(false);
 
+  // ...existing code...
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -156,39 +186,40 @@ export default function Home() {
     setEnriching(false);
   };
 
-  if (authLoading) return <div style={{display:'flex', justifyContent:'center', marginTop:'50px'}}>Loading...</div>;
+  if (authLoading) return (
+    <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <CircularProgress />
+    </Box>
+  );
 
   if (!user) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', gap: '2rem' }}>
+      <Container maxWidth="sm">
         <Head>
           <title>Elliott Home Organization</title>
           <meta name="description" content="Sign in to access Elliott Home Organization" />
         </Head>
-        <h1>Elliott Home Organization</h1>
-        <button 
-          onClick={handleLogin}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '10px 20px',
-            fontSize: '16px',
-            cursor: 'pointer',
-            backgroundColor: '#fff',
-            border: '1px solid #ccc',
-            borderRadius: '5px'
-          }}
+        <Box 
+          display="flex" 
+          flexDirection="column" 
+          alignItems="center" 
+          justifyContent="center" 
+          minHeight="100vh" 
+          gap={4}
         >
-          <svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="24px" height="24px">
-            <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path>
-            <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path>
-            <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path>
-            <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path>
-          </svg>
-          Sign in with Google
-        </button>
-      </div>
+          <Typography variant="h3" component="h1" gutterBottom align="center">
+            Elliott Home Organization
+          </Typography>
+          <Button 
+            variant="outlined" 
+            startIcon={<GoogleIcon />} 
+            onClick={handleLogin}
+            size="large"
+          >
+            Sign in with Google
+          </Button>
+        </Box>
+      </Container>
     );
   }
 
@@ -199,141 +230,181 @@ export default function Home() {
         <meta name="description" content="Scan bookshelves and get details" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
-      <div className={styles.page}>
-        <main className={styles.main}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%', marginBottom: '20px' }}>
-            <h1>Elliott Home Organizer</h1>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-               {user.photoURL && <img src={user.photoURL} alt="Profile" style={{ width: '32px', height: '32px', borderRadius: '50%' }} />}
-               <button onClick={handleLogout} style={{ padding: '5px 10px', cursor: 'pointer' }}>Sign Out</button>
-            </div>
-          </div>
-          
-          <div style={{ marginBottom: '2rem', padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-            <h2>Step 1: Select Location</h2>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-              <select 
-                value={selectedFolder} 
-                onChange={(e) => setSelectedFolder(e.target.value)}
-                style={{ padding: '0.5rem', fontSize: '1rem', flexGrow: 1 }}
-              >
-                {folders.map(f => (
-                  <option key={f} value={f}>{f}</option>
-                ))}
-              </select>
-              <button 
-                onClick={handleScan} 
-                disabled={loading}
-                style={{ padding: '0.5rem 1rem', fontSize: '1rem', cursor: loading ? 'wait' : 'pointer' }}
-              >
-                {loading ? 'Scanning Images...' : 'Scan For Books'}
-              </button>
-            </div>
-          </div>
+      
+      <AppBar position="static">
+        <Toolbar>
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            Elliott Home Organizer
+          </Typography>
+          <Box display="flex" alignItems="center" gap={2}>
+            {user.photoURL && <Avatar src={user.photoURL} alt="Profile" />}
+            <Button color="inherit" onClick={handleLogout}>Sign Out</Button>
+          </Box>
+        </Toolbar>
+      </AppBar>
 
-          <div style={{ marginBottom: '2rem', padding: '20px', border: '1px solid #ccc', borderRadius: '8px', backgroundColor: '#f9f9f9' }}>
-            <h2>GPS Location Extraction</h2>
-            <p>Extract GPS coordinates from all images in <strong>{selectedFolder}</strong>:</p>
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
-              <button
+      <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Stack spacing={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Step 1: Select Location
+              </Typography>
+              <Box display="flex" gap={2} alignItems="center">
+                <FormControl fullWidth size="small">
+                  <InputLabel>Location</InputLabel>
+                  <Select
+                    value={selectedFolder}
+                    label="Location"
+                    onChange={(e) => setSelectedFolder(e.target.value)}
+                  >
+                    {folders.map(f => (
+                      <MenuItem key={f} value={f}>{f}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button 
+                  variant="contained" 
+                  onClick={handleScan} 
+                  disabled={loading}
+                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                  sx={{ minWidth: 200 }}
+                >
+                  {loading ? 'Scanning...' : 'Scan For Books'}
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+
+          <Card sx={{ bgcolor: '#f9f9f9' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                GPS Location Extraction
+              </Typography>
+              <Typography variant="body2" color="text.secondary" paragraph>
+                Extract GPS coordinates from all images in <strong>{selectedFolder}</strong>:
+              </Typography>
+              
+              <Button
+                variant="outlined"
                 onClick={handleExtractGPS}
                 disabled={extractingGps}
-                style={{ padding: '0.5rem 1rem', fontSize: '1rem', cursor: extractingGps ? 'wait' : 'pointer' }}
+                startIcon={extractingGps ? <CircularProgress size={20} /> : <LocationOnIcon />}
+                sx={{ mb: 2 }}
               >
                 {extractingGps ? 'Extracting GPS data...' : 'Get GPS for Folder'}
-              </button>
-            </div>
-            
-            {gpsData && (
-              <div style={{ marginTop: '1rem', padding: '1rem', backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: '4px' }}>
-                <h3>Extracted GPS Data ({gpsData.gpsData.length} images with GPS):</h3>
-                <p>Checked {gpsData.imageCount} images in {gpsData.folder}.</p>
-                {gpsData.gpsData.length > 0 ? (
-                  <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-                    <thead>
-                        <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
-                            <th style={{ padding: '8px' }}>File</th>
-                            <th style={{ padding: '8px' }}>Latitude</th>
-                            <th style={{ padding: '8px' }}>Longitude</th>
-                            <th style={{ padding: '8px' }}>Address</th>
-                            <th style={{ padding: '8px' }}>Date</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {gpsData.gpsData.map((item, idx) => (
-                            <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={{ padding: '8px' }}>{item.fileName}</td>
-                                <td style={{ padding: '8px' }}>{item.latitude.toFixed(6)}</td>
-                                <td style={{ padding: '8px' }}>{item.longitude.toFixed(6)}</td>
-                                <td style={{ padding: '8px' }}>{item.address || 'Loading...'}</td>
-                                <td style={{ padding: '8px' }}>{item.dateStamp} {item.timeStamp}</td>
-                            </tr>
-                        ))}
-                    </tbody>
-                  </table>
-                ) : (
-                  <p style={{ color: '#666' }}>No GPS coordinates found in any images.</p>
-                )}
-              </div>
-            )}
-          </div>
+              </Button>
+              
+              {gpsData && (
+                <Paper variant="outlined" sx={{ p: 2, mt: 2 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Extracted GPS Data ({gpsData.gpsData.length} images with GPS)
+                  </Typography>
+                  <Typography variant="body2" paragraph>
+                    Checked {gpsData.imageCount} images in {gpsData.folder}.
+                  </Typography>
+                  
+                  {gpsData.gpsData.length > 0 ? (
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>File</TableCell>
+                            <TableCell>Latitude</TableCell>
+                            <TableCell>Longitude</TableCell>
+                            <TableCell>Address</TableCell>
+                            <TableCell>Date</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {gpsData.gpsData.map((item, idx) => (
+                            <TableRow key={idx}>
+                              <TableCell>{item.fileName}</TableCell>
+                              <TableCell>{typeof item.latitude === 'number' ? item.latitude.toFixed(6) : item.latitude}</TableCell>
+                              <TableCell>{typeof item.longitude === 'number' ? item.longitude.toFixed(6) : item.longitude}</TableCell>
+                              <TableCell>{item.address || 'Loading...'}</TableCell>
+                              <TableCell>{item.dateStamp} {item.timeStamp}</TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  ) : (
+                    <Alert severity="info">No GPS coordinates found in any images.</Alert>
+                  )}
+                </Paper>
+              )}
+            </CardContent>
+          </Card>
 
           {books.length > 0 && (
-            <div style={{ padding: '20px', border: '1px solid #ccc', borderRadius: '8px' }}>
-              <h2>Step 2: Review & Enrich</h2>
-              <div style={{display:'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem'}}>
-                <p>Found <strong>{books.length}</strong> books.</p>
-                <button 
+            <Card>
+              <CardContent>
+                <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                  <Typography variant="h6">
+                    Step 2: Review & Enrich
+                  </Typography>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Found {books.length} books
+                  </Typography>
+                  <Button 
+                    variant="contained" 
+                    color="secondary"
                     onClick={handleEnrich} 
                     disabled={enriching}
-                    style={{ padding: '0.5rem 1rem', fontSize: '1rem', cursor: enriching ? 'wait' : 'pointer', backgroundColor: '#0070f3', color: 'white', border: 'none', borderRadius: '4px' }}
-                >
-                    {enriching ? 'Fetching Details from Perplexity...' : 'Get Details (ISBN, Publisher, etc.)'}
-                </button>
-              </div>
+                    startIcon={enriching ? <CircularProgress size={20} color="inherit" /> : <AutoStoriesIcon />}
+                  >
+                    {enriching ? 'Fetching Details...' : 'Get Details from Perplexity'}
+                  </Button>
+                </Box>
 
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #eaeaea', backgroundColor: '#333', color: '#fff' }}>
-                    <th style={{ padding: '10px' }}>Detected Title</th>
-                    <th style={{ padding: '10px' }}>Detected Author</th>
-                    <th style={{ padding: '10px' }}>Image Source</th>
-                    <th style={{ padding: '10px' }}>Details (Perplexity)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {books.map((book, idx) => (
-                    <tr key={idx} style={{ borderBottom: '1px solid #eaeaea' }}>
-                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{book.title}</td>
-                      <td style={{ padding: '10px', verticalAlign: 'top' }}>{book.author}</td>
-                      <td style={{ padding: '10px', verticalAlign: 'top' }}>
-                        {book.sources ? (Array.isArray(book.sources) ? book.sources.join(', ') : book.sources) : '-'}
-                      </td>
-                      <td style={{ padding: '10px', fontSize: '0.9em', verticalAlign: 'top' }}>
-                        {enrichedData[book.title] ? (
-                          enrichedData[book.title].error ? (
-                            <span style={{color:'red'}}>Error fetching details</span>
-                          ) : (
-                            <ul style={{ margin: 0, paddingLeft: '20px' }}>
-                              <li><strong>Authors:</strong> {enrichedData[book.title].authors}</li>
-                              <li><strong>ISBN:</strong> {enrichedData[book.title].isbn}</li>
-                              <li><strong>Publisher:</strong> {enrichedData[book.title].publisher}</li>
-                              <li><strong>Year:</strong> {enrichedData[book.title].publicationDate}</li>
-                              <li><strong>Edition:</strong> {enrichedData[book.title].edition}</li>
-                            </ul>
-                          )
-                        ) : (
-                          <span style={{ color: '#888' }}>{enriching ? 'Pending...' : '-'}</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                <TableContainer component={Paper} variant="outlined">
+                  <Table>
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: 'action.hover' }}>
+                        <TableCell>Detected Title</TableCell>
+                        <TableCell>Detected Author</TableCell>
+                        <TableCell>Image Source</TableCell>
+                        <TableCell>Details (Perplexity)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {books.map((book, idx) => (
+                        <TableRow key={idx}>
+                          <TableCell sx={{ verticalAlign: 'top' }}>{book.title}</TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>{book.author}</TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                            {book.sources ? (Array.isArray(book.sources) ? book.sources.join(', ') : book.sources) : '-'}
+                          </TableCell>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                            {enrichedData[book.title] ? (
+                              enrichedData[book.title].error ? (
+                                <Alert severity="error" size="small">Error fetching details</Alert>
+                              ) : (
+                                <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                                  <Box component="li"><strong>Authors:</strong> {Array.isArray(enrichedData[book.title].authors) ? enrichedData[book.title].authors.join(', ') : enrichedData[book.title].authors}</Box>
+                                  <Box component="li"><strong>ISBN:</strong> {enrichedData[book.title].isbn}</Box>
+                                  <Box component="li"><strong>Publisher:</strong> {enrichedData[book.title].publisher}</Box>
+                                  <Box component="li"><strong>Year:</strong> {enrichedData[book.title].publicationDate}</Box>
+                                  <Box component="li"><strong>Edition:</strong> {enrichedData[book.title].edition}</Box>
+                                </Box>
+                              )
+                            ) : (
+                              <Typography variant="body2" color="text.secondary">
+                                {enriching ? 'Pending...' : '-'}
+                              </Typography>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </CardContent>
+            </Card>
           )}
-        </main>
-      </div>
+        </Stack>
+      </Container>
     </>
   );
 }
