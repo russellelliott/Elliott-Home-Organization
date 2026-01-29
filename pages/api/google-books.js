@@ -56,38 +56,86 @@ export default async function handler(req, res) {
     const olData = await olResponse.json();
 
     if (olData.docs && olData.docs.length > 0) {
-        const book = olData.docs[0];
-        const result = {
-            source: 'Open Library',
-            title: book.title,
-            authors: book.author_name || [],
-            publisher: book.publisher ? book.publisher[0] : null,
-            publishedDate: book.first_publish_year ? book.first_publish_year.toString() : null,
-            description: null, 
-            pageCount: book.number_of_pages_median || null,
-            categories: book.subject ? book.subject.slice(0, 3) : [],
-            thumbnail: book.cover_i ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg` : null,
-            infoLink: `https://openlibrary.org${book.key}`,
-            canonicalVolumeLink: `https://openlibrary.org${book.key}`,
-            isbn: book.isbn ? book.isbn[0] : null
-        };
+        const searchDoc = olData.docs[0];
+        console.log("Open Library Search Doc:", JSON.stringify(searchDoc, null, 2));
+        
+        let detailedBook = null;
+        let description = null;
 
-        // Try to fetch description from the Works API
-        if (book.key) {
+        if (searchDoc.key) {
              try {
-                const workRes = await fetch(`https://openlibrary.org${book.key}.json`);
-                if (workRes.ok) {
-                    const workData = await workRes.json();
-                    if (workData.description) {
-                         result.description = typeof workData.description === 'string' 
-                            ? workData.description 
-                            : workData.description.value;
-                    }
+                // If it's a Work, we need to fetch an Edition to get ISBN/Publisher specs
+                if (searchDoc.key.startsWith('/works/')) {
+                     const editionsUrl = `https://openlibrary.org${searchDoc.key}/editions.json?limit=1`;
+                     const workUrl = `https://openlibrary.org${searchDoc.key}.json`;
+                     
+                     const [editionsRes, workRes] = await Promise.all([
+                        fetch(editionsUrl),
+                        fetch(workUrl)
+                     ]);
+
+                     if (editionsRes.ok) {
+                        const editionsData = await editionsRes.json();
+                        if (editionsData.entries && editionsData.entries.length > 0) {
+                            detailedBook = editionsData.entries[0];
+                            console.log("Open Library Detailed Edition:", JSON.stringify(detailedBook, null, 2));
+                        }
+                     }
+                     
+                     if (workRes.ok) {
+                        const workData = await workRes.json();
+                        if (workData.description) {
+                             description = typeof workData.description === 'string' 
+                                ? workData.description 
+                                : workData.description.value;
+                        }
+                     }
+                } else {
+                    // It might be a direct book key
+                     const detailsUrl = `https://openlibrary.org${searchDoc.key}.json`;
+                     const detailsRes = await fetch(detailsUrl);
+                     if (detailsRes.ok) {
+                         detailedBook = await detailsRes.json();
+                         console.log("Open Library Detailed Book:", JSON.stringify(detailedBook, null, 2));
+                     }
                 }
              } catch (err) {
-                 console.error("Open Library Work fetch failed", err);
+                 console.error("Error fetching Open Library details:", err);
              }
         }
+
+        // Merge sources: Detailed Edition > Search Doc
+        const finalData = detailedBook || {};
+
+        const result = {
+            source: 'Open Library',
+            title: finalData.title || searchDoc.title,
+            // Search doc typically has flattened author names. Detailed book has author keys.
+            authors: searchDoc.author_name || [], 
+            publisher: finalData.publishers ? finalData.publishers[0] : (searchDoc.publisher ? searchDoc.publisher[0] : null),
+            publishedDate: finalData.publish_date || (searchDoc.first_publish_year ? searchDoc.first_publish_year.toString() : null),
+            description: description || null, 
+            pageCount: finalData.number_of_pages || searchDoc.number_of_pages_median || null,
+            categories: searchDoc.subject ? searchDoc.subject.slice(0, 3) : [],
+            thumbnail: finalData.covers && finalData.covers.length > 0 && finalData.covers[0] !== -1
+                ? `https://covers.openlibrary.org/b/id/${finalData.covers[0]}-M.jpg` 
+                : (searchDoc.cover_i ? `https://covers.openlibrary.org/b/id/${searchDoc.cover_i}-M.jpg` : null),
+            
+            infoLink: `https://openlibrary.org${searchDoc.key}`,
+            canonicalVolumeLink: `https://openlibrary.org${searchDoc.key}`,
+            
+            isbn: (() => {
+                // Priority: Detailed Object ISBN 13 -> 10 -> Search Doc Generic
+                if (finalData.isbn_13 && finalData.isbn_13.length > 0) return finalData.isbn_13[0];
+                if (finalData.isbn_10 && finalData.isbn_10.length > 0) return finalData.isbn_10[0];
+                
+                if (searchDoc.isbn && Array.isArray(searchDoc.isbn)) {
+                    const found13 = searchDoc.isbn.find(i => i.length === 13);
+                    return found13 || searchDoc.isbn[0];
+                }
+                return null;
+            })()
+        };
 
         return res.status(200).json(result);
     }

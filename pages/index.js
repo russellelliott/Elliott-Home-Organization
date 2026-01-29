@@ -448,8 +448,8 @@ export default function Home() {
                                                 </Typography>
                                             </Box>
                                             <Box component="li"><strong>Title:</strong> <a href={googleBooksData[book.title].canonicalVolumeLink} target="_blank" rel="noopener noreferrer">{googleBooksData[book.title].title}</a></Box>
-                                            <Box component="li"><strong>Authors:</strong> {googleBooksData[book.title].authors.join(', ')}</Box>
-                                            <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn}</Box>
+                                            <Box component="li"><strong>Authors:</strong> {Array.isArray(googleBooksData[book.title].authors) ? googleBooksData[book.title].authors.join(', ') : googleBooksData[book.title].authors}</Box>
+                                            <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn || 'N/A'}</Box>
                                             <Box component="li"><strong>Publisher:</strong> {googleBooksData[book.title].publisher}</Box>
                                             <Box component="li"><strong>Date:</strong> {googleBooksData[book.title].publishedDate}</Box>
                                             {googleBooksData[book.title].description && (
