@@ -1,4 +1,28 @@
 
+function cleanTitle(title) {
+    if (!title) return title;
+    // Remove " - Part X", " Part X", " - Vol. X", " Vol. X"
+    return title.replace(/(\s*-\s*)?(Part|Vol|Volume)\.?\s*\d+.*$/i, '').trim();
+}
+
+async function searchGoogleBooks(title, author, apiKey) {
+    let query = `intitle:"${title}"`;
+    if (author && author !== 'Unknown') {
+        query += `+inauthor:"${author}"`;
+    }
+    
+    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=1`;
+    try {
+        const response = await fetch(url);
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.items || [];
+    } catch (e) {
+        console.error("Error fetching from Google Books:", e);
+        return [];
+    }
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ message: 'Method not allowed' });
@@ -13,18 +37,31 @@ export default async function handler(req, res) {
   try {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
-    let query = `intitle:"${title}"`;
-    if (author && author !== 'Unknown') {
-        query += `+inauthor:"${author}"`;
+    // 1. Precise search
+    let items = await searchGoogleBooks(title, author, apiKey);
+
+    // 2. Retry with cleaned title (removing " Part 1", etc.)
+    const cleanedTitle = cleanTitle(title);
+    if (items.length === 0 && cleanedTitle !== title && cleanedTitle.length > 0) {
+        console.log(`Google Books: Retrying with cleaned title: "${cleanedTitle}"`);
+        items = await searchGoogleBooks(cleanedTitle, author, apiKey);
     }
 
-    const url = `https://www.googleapis.com/books/v1/volumes?q=${encodeURIComponent(query)}&key=${apiKey}&maxResults=1`;
-    
-    const response = await fetch(url);
-    const data = await response.json();
+    // 3. Retry without author (using original title)
+    // Sometimes OCR author is messy or strict match fails
+    if (items.length === 0 && author && author !== 'Unknown') {
+        console.log(`Google Books: Retrying without author constraint: "${title}"`);
+        items = await searchGoogleBooks(title, null, apiKey);
+    }
 
-    if (data.items && data.items.length > 0) {
-        const book = data.items[0].volumeInfo;
+    // 4. Retry without author (using cleaned title)
+    if (items.length === 0 && author && author !== 'Unknown' && cleanedTitle !== title && cleanedTitle.length > 0) {
+        console.log(`Google Books: Retrying cleaned title without author constraint: "${cleanedTitle}"`);
+        items = await searchGoogleBooks(cleanedTitle, null, apiKey);
+    }
+
+    if (items.length > 0) {
+        const book = items[0].volumeInfo;
         const result = {
             source: 'Google Books',
             title: book.title,
