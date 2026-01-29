@@ -1,6 +1,6 @@
-# Bookshelf Scanner
+# Elliott Home Organization
 
-A Next.js application designed to catalogue books by scanning images of bookshelves.
+A Next.js application designed to organize the various physical and virtual media of the Elliott household, which among other things, would involve cataloging books by scanning images of bookshelves.
 
 ## Project Structure
 
