@@ -430,7 +430,7 @@ export default function Home() {
                           <TableCell sx={{ verticalAlign: 'top' }}>
                              {googleBooksData[book.title] ? (
                                 googleBooksData[book.title].error ? (
-                                    <Alert severity="warning" size="small">Book not found</Alert>
+                                    <Alert severity="warning" size="small">error in finding book in Google Books database</Alert>
                                 ) : (
                                     <Box display="flex" gap={2}>
                                         {googleBooksData[book.title].thumbnail && (
@@ -442,6 +442,20 @@ export default function Home() {
                                             <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn}</Box>
                                             <Box component="li"><strong>Publisher:</strong> {googleBooksData[book.title].publisher}</Box>
                                             <Box component="li"><strong>Date:</strong> {googleBooksData[book.title].publishedDate}</Box>
+                                            {googleBooksData[book.title].description && (
+                                                <Box component="li">
+                                                    <strong>Description:</strong>
+                                                    <Typography variant="body2" sx={{ 
+                                                        display: '-webkit-box', 
+                                                        overflow: 'hidden', 
+                                                        WebkitBoxOrient: 'vertical', 
+                                                        WebkitLineClamp: 4,
+                                                        maxHeight: '6em' 
+                                                    }}>
+                                                        {googleBooksData[book.title].description}
+                                                    </Typography>
+                                                </Box>
+                                            )}
                                         </Box>
                                     </Box>
                                 )
