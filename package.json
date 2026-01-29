@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@react-google-maps/api": "^2.20.8",
     "axios": "^1.13.2",
     "exifreader": "^4.36.1",
     "firebase": "^12.8.0",

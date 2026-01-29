@@ -45,17 +45,33 @@ export default async function handler(req, res) {
         const fileBuffer = fs.readFileSync(filePath);
         const tags = await ExifReader.load(fileBuffer);
         
-        const latitude = tags.GPSLatitude?.description || null;
-        const longitude = tags.GPSLongitude?.description || null;
+        let latitude = tags.GPSLatitude?.description || null;
+        let longitude = tags.GPSLongitude?.description || null;
         const gpsAltitude = tags.GPSAltitude?.description || null;
         const gpsDateStamp = tags.GPSDateStamp?.description || null;
         const gpsTimeStamp = tags.GPSTimeStamp?.description || null;
 
         if (latitude && longitude) {
+            // Convert to numbers
+            latitude = parseFloat(latitude);
+            longitude = parseFloat(longitude);
+
+            // Apply direction reference (N/S, E/W)
+            const latRef = tags.GPSLatitudeRef?.description || tags.GPSLatitudeRef?.value?.[0];
+            const lonRef = tags.GPSLongitudeRef?.description || tags.GPSLongitudeRef?.value?.[0];
+
+            if (latRef && (latRef === 'S' || latRef.startsWith('S'))) {
+                latitude = -1 * Math.abs(latitude);
+            }
+
+            if (lonRef && (lonRef === 'W' || lonRef.startsWith('W'))) {
+                longitude = -1 * Math.abs(longitude);
+            }
+
             results.push({
                 fileName: file,
-                latitude,
-                longitude,
+                latitude, // Now a number with correct sign
+                longitude, // Now a number with correct sign
                 altitude: gpsAltitude,
                 dateStamp: gpsDateStamp,
                 timeStamp: gpsTimeStamp,

@@ -25,7 +25,34 @@ export default function Home() {
       const data = await res.json();
       
       if (res.ok) {
-        setGpsData(data);
+        setGpsData(data); // Show data immediately
+
+         // Reverse geocode via REST API
+        if (data.gpsData && data.gpsData.length > 0) {
+            const updatedGpsList = [...data.gpsData];
+            const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+            for (let i = 0; i < updatedGpsList.length; i++) {
+                const item = updatedGpsList[i];
+                try {
+                  const geoRes = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${item.latitude},${item.longitude}&key=${apiKey}`);
+                  const geoData = await geoRes.json();
+                  
+                  if (geoData.status === 'OK' && geoData.results[0]) {
+                     updatedGpsList[i] = { ...item, address: geoData.results[0].formatted_address };
+                  } else {
+                     updatedGpsList[i] = { ...item, address: `Lookup failed: ${geoData.status}` };
+                  }
+
+                } catch (err) {
+                    console.error('Error reverse geocoding:', item.fileName, err);
+                    updatedGpsList[i] = { ...item, address: 'Lookup failed' };
+                }
+            }
+            // Update state with addresses
+            setGpsData(prev => ({ ...prev, gpsData: updatedGpsList }));
+        }
+
       } else {
         alert(data.message || 'Failed to extract GPS data');
       }
@@ -143,6 +170,7 @@ export default function Home() {
                             <th style={{ padding: '8px' }}>File</th>
                             <th style={{ padding: '8px' }}>Latitude</th>
                             <th style={{ padding: '8px' }}>Longitude</th>
+                            <th style={{ padding: '8px' }}>Address</th>
                             <th style={{ padding: '8px' }}>Date</th>
                         </tr>
                     </thead>
@@ -150,8 +178,9 @@ export default function Home() {
                         {gpsData.gpsData.map((item, idx) => (
                             <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
                                 <td style={{ padding: '8px' }}>{item.fileName}</td>
-                                <td style={{ padding: '8px' }}>{item.latitude}</td>
-                                <td style={{ padding: '8px' }}>{item.longitude}</td>
+                                <td style={{ padding: '8px' }}>{item.latitude.toFixed(6)}</td>
+                                <td style={{ padding: '8px' }}>{item.longitude.toFixed(6)}</td>
+                                <td style={{ padding: '8px' }}>{item.address || 'Loading...'}</td>
                                 <td style={{ padding: '8px' }}>{item.dateStamp} {item.timeStamp}</td>
                             </tr>
                         ))}
