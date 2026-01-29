@@ -203,6 +203,10 @@ export default function Home() {
                 });
                 details = await res.json();
             }
+            
+            if (details.error) {
+                console.log(`Book not found in Google Books: "${book.title}"`);
+            }
 
             setGoogleBooksData(prev => ({ ...prev, [book.title]: details }));
         } catch (e) {
@@ -385,7 +389,7 @@ export default function Home() {
                     disabled={enriching}
                     startIcon={enriching ? <CircularProgress size={20} color="inherit" /> : <AutoStoriesIcon />}
                   >
-                    {enriching ? 'Fetching Details...' : 'Get Details from Perplexity'}
+                    {enriching ? 'Fetching Details...' : 'Get Enriched Information'}
                   </Button>
                 </Box>
 
