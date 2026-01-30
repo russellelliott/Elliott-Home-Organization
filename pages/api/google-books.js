@@ -1,8 +1,15 @@
 
 function cleanTitle(title) {
     if (!title) return title;
+    let cleaned = title;
+    
+    // Remove "Then & Now: ", "Then and Now: " prefix
+    cleaned = cleaned.replace(/^Then\s*(&|and)\s*Now\s*:\s*/i, '');
+
     // Remove " - Part X", " Part X", " - Vol. X", " Vol. X"
-    return title.replace(/(\s*-\s*)?(Part|Vol|Volume)\.?\s*\d+.*$/i, '').trim();
+    cleaned = cleaned.replace(/(\s*-\s*)?(Part|Vol|Volume)\.?\s*\d+.*$/i, '');
+    
+    return cleaned.trim();
 }
 
 async function searchGoogleBooks(title, author, apiKey) {
