@@ -6,6 +6,9 @@ function cleanTitle(title) {
     // Remove "Then & Now: ", "Then and Now: " prefix
     cleaned = cleaned.replace(/^Then\s*(&|and)\s*Now\s*:\s*/i, '');
 
+    // Remove " Then & Now", " Then and Now" suffix
+    cleaned = cleaned.replace(/[:\s]*Then\s*(&|and)\s*Now$/i, '');
+
     // Remove " - Part X", " Part X", " - Vol. X", " Vol. X"
     cleaned = cleaned.replace(/(\s*-\s*)?(Part|Vol|Volume)\.?\s*\d+.*$/i, '');
     

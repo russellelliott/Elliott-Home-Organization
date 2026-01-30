@@ -422,7 +422,6 @@ export default function Home() {
                                   <Box component="li"><strong>ISBN:</strong> {enrichedData[book.title].isbn}</Box>
                                   <Box component="li"><strong>Publisher:</strong> {enrichedData[book.title].publisher}</Box>
                                   <Box component="li"><strong>Year:</strong> {enrichedData[book.title].publicationDate}</Box>
-                                  <Box component="li"><strong>Edition:</strong> {enrichedData[book.title].edition}</Box>
                                 </Box>
                               )
                             ) : (

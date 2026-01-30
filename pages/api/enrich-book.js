@@ -27,9 +27,8 @@ export default async function handler(req, res) {
       - ISBN (prefer 13-digit, otherwise 10-digit)
       - Publisher
       - Publication year or date
-      - Edition (e.g., first, revised) if visible (or generally known primary edition)
 
-      Return ONLY a valid JSON object with these exact keys: "authors", "isbn", "publisher", "publicationDate", "edition".
+      Return ONLY a valid JSON object with these exact keys: "authors", "isbn", "publisher", "publicationDate".
       Do not include any other text or markdown formatting.
     `;
 
