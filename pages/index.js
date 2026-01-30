@@ -26,13 +26,23 @@ import {
   FormControl,
   InputLabel,
   Stack,
-  Alert
+  Alert,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  FormControlLabel,
+  Radio,
+  RadioGroup,
+  TextField
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import SearchIcon from '@mui/icons-material/Search';
 import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
+import EditIcon from '@mui/icons-material/Edit';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -46,6 +56,14 @@ export default function Home() {
   const [googleBooksData, setGoogleBooksData] = useState({});
   const [gpsData, setGpsData] = useState(null);
   const [extractingGps, setExtractingGps] = useState(false);
+
+  // Edit / Redo State
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingBookIndex, setEditingBookIndex] = useState(null);
+  const [editingBook, setEditingBook] = useState(null);
+  const [feedbackType, setFeedbackType] = useState('both_wrong');
+  const [feedbackDetails, setFeedbackDetails] = useState('');
+  const [reanalyzing, setReanalyzing] = useState(false);
 
   // ...existing code...
   useEffect(() => {
@@ -219,6 +237,71 @@ export default function Home() {
     setFetchingGoogle(false);
   };
 
+  const handleOpenEdit = (book, index) => {
+    setEditingBook(book);
+    setEditingBookIndex(index);
+    setFeedbackType('both_wrong');
+    setFeedbackDetails('');
+    setEditDialogOpen(true);
+  };
+
+  const handleCloseEdit = () => {
+    setEditDialogOpen(false);
+    setEditingBook(null);
+    setEditingBookIndex(null);
+  };
+
+  const handleReanalyze = async () => {
+    if (!editingBook) return;
+    setReanalyzing(true);
+    try {
+        const res = await fetch('/api/reanalyze-book', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                folder: selectedFolder,
+                sources: editingBook.sources,
+                currentTitle: editingBook.title,
+                currentAuthor: editingBook.author,
+                feedbackType,
+                feedbackDetails
+            }),
+        });
+        const data = await res.json();
+        if (res.ok) {
+            // Update the book in the list
+            const updatedBooks = [...books];
+            updatedBooks[editingBookIndex] = {
+                ...editingBook,
+                title: data.correctedBook.title,
+                author: data.correctedBook.author
+            };
+            setBooks(updatedBooks);
+            
+            // Clear enriched data for this book since it changed
+            setEnrichedData(prev => {
+                const newData = { ...prev };
+                delete newData[editingBook.title];
+                return newData;
+            });
+            setGoogleBooksData(prev => {
+                const newData = { ...prev };
+                delete newData[editingBook.title];
+                return newData;
+            });
+
+            handleCloseEdit();
+        } else {
+            alert(data.message || 'Re-analysis failed');
+        }
+    } catch (e) {
+        console.error("Re-analysis error", e);
+        alert('An error occurred');
+    } finally {
+        setReanalyzing(false);
+    }
+  };
+
   if (authLoading) return (
     <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
       <CircularProgress />
@@ -376,27 +459,34 @@ export default function Home() {
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Box>
                     <Typography variant="h6">
-                        Step 2: Review & Enrich
+                        Step 2: Review & Correct
                     </Typography>
                     <Typography variant="subtitle2" color="text.secondary">
-                        Found {books.length} books
+                        Found {books.length} books. Verify titles/authors below before enriching.
                     </Typography>
                   </Box>
-                  <Button 
-                    variant="contained" 
-                    color="secondary"
-                    onClick={handleEnrich} 
-                    disabled={enriching}
-                    startIcon={enriching ? <CircularProgress size={20} color="inherit" /> : <AutoStoriesIcon />}
-                  >
-                    {enriching ? 'Fetching Details...' : 'Get Enriched Information'}
-                  </Button>
+                </Box>
+                
+                <Box mb={2}>
+                    <Typography variant="h6">
+                        Step 3: Enrich Data
+                    </Typography>
+                    <Button 
+                        variant="contained" 
+                        color="secondary"
+                        onClick={handleEnrich} 
+                        disabled={enriching}
+                        startIcon={enriching ? <CircularProgress size={20} color="inherit" /> : <AutoStoriesIcon />}
+                    >
+                        {enriching ? 'Fetching Details...' : 'Get Enriched Information'}
+                    </Button>
                 </Box>
 
                 <TableContainer component={Paper} variant="outlined">
                   <Table>
                     <TableHead>
                       <TableRow sx={{ bgcolor: 'action.hover' }}>
+                        <TableCell>Edit</TableCell>
                         <TableCell>Detected Title</TableCell>
                         <TableCell>Detected Author</TableCell>
                         <TableCell>Image Source</TableCell>
@@ -407,6 +497,11 @@ export default function Home() {
                     <TableBody>
                       {books.map((book, idx) => (
                         <TableRow key={idx}>
+                          <TableCell sx={{ verticalAlign: 'top' }}>
+                            <IconButton onClick={() => handleOpenEdit(book, idx)} size="small">
+                                <EditIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
                           <TableCell sx={{ verticalAlign: 'top' }}>{book.title}</TableCell>
                           <TableCell sx={{ verticalAlign: 'top' }}>{book.author}</TableCell>
                           <TableCell sx={{ verticalAlign: 'top' }}>
@@ -504,6 +599,51 @@ export default function Home() {
           )}
         </Stack>
       </Container>
+
+
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth>
+        <DialogTitle>Redo Book Analysis</DialogTitle>
+        <DialogContent>
+            <Typography variant="body2" gutterBottom>
+                Correcting: <strong>{editingBook?.title}</strong> by {editingBook?.author}
+            </Typography>
+            
+            <Box mt={2}>
+                <Typography variant="subtitle2" gutterBottom>
+                    What's wrong?
+                </Typography>
+                <RadioGroup
+                    value={feedbackType}
+                    onChange={(e) => setFeedbackType(e.target.value)}
+                >
+                    <FormControlLabel value="title_wrong" control={<Radio />} label="Title is wrong" />
+                    <FormControlLabel value="author_wrong" control={<Radio />} label="Author is wrong" />
+                    <FormControlLabel value="both_wrong" control={<Radio />} label="Both are wrong" />
+                </RadioGroup>
+            </Box>
+
+            <Box mt={2}>
+                 <TextField
+                    fullWidth
+                    label="Additional Hints (Optional)"
+                    multiline
+                    rows={2}
+                    variant="outlined"
+                    value={feedbackDetails}
+                    onChange={(e) => setFeedbackDetails(e.target.value)}
+                    placeholder="e.g. 'The title starts with X', 'The author is Y'"
+                    helperText="Providing a hint helps the AI identify the correct book from the image."
+                 />
+            </Box>
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={handleCloseEdit} disabled={reanalyzing}>Cancel</Button>
+            <Button onClick={handleReanalyze} variant="contained" disabled={reanalyzing}>
+                {reanalyzing ? 'Analyzing...' : 'Redo Analysis'}
+            </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }
