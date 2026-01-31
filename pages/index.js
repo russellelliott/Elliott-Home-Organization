@@ -529,9 +529,9 @@ export default function Home() {
                                 <TableCell>{book.publicationDate}</TableCell>
                                 <TableCell>{book.isbn}</TableCell>
                                 <TableCell>
-                                    {book.source && (
-                                        <Typography component="a" href={book.source} target="_blank" rel="noopener noreferrer" variant="caption">
-                                            Link
+                                    {book.sourceUrl && (
+                                        <Typography component="a" href={book.sourceUrl} target="_blank" rel="noopener noreferrer" variant="caption">
+                                            {book.source || 'Link'}
                                         </Typography>
                                     )}
                                 </TableCell>
@@ -670,9 +670,9 @@ export default function Home() {
                     onChange={(e) => setManualEditingBook({...manualEditingBook, description: e.target.value})}
                     fullWidth
                  />
-                 {manualEditingBook?.source && (
+                 {manualEditingBook?.sourceUrl && (
                      <Typography variant="caption">
-                         <a href={manualEditingBook.source} target="_blank" rel="noreferrer">Reference Link</a>
+                         <a href={manualEditingBook.sourceUrl} target="_blank" rel="noreferrer">Reference: {manualEditingBook.source || 'Link'}</a>
                      </Typography>
                  )}
             </Box>

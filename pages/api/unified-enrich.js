@@ -91,6 +91,11 @@ async function fetchGoogleBooksData(title, author) {
              items = await searchGoogleBooks(title, null, apiKey);
         }
 
+        // 4. Retry without author with cleaned title
+        if (items.length === 0 && author && author !== 'Unknown' && cleanedTitle !== title && cleanedTitle.length > 0) {
+             items = await searchGoogleBooks(cleanedTitle, null, apiKey);
+        }
+
         if (items.length > 0) {
             const book = items[0].volumeInfo;
             // Best effort high res image
@@ -139,7 +144,8 @@ async function fetchOpenLibraryData(title, author) {
                 publicationDate: doc.first_publish_year ? String(doc.first_publish_year) : null,
                 isbn: doc.isbn ? doc.isbn[0] : null,
                 coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null,
-                infoLink: `https://openlibrary.org${doc.key}`
+                infoLink: `https://openlibrary.org${doc.key}`,
+                sourceUrl: `https://openlibrary.org${doc.key}`
             };
         }
         return null;
@@ -185,6 +191,19 @@ export default async function handler(req, res) {
     let externalData = googleData;
     if (!externalData) {
         externalData = await fetchOpenLibraryData(title, author);
+        
+        // Retry OL with cleaned title if missing
+        if (!externalData) {
+            const cleaned = cleanTitle(title);
+            if (cleaned !== title) {
+                externalData = await fetchOpenLibraryData(cleaned, author);
+            }
+        }
+        
+        // Retry OL with just title if author mismatch
+        if (!externalData && author) {
+             externalData = await fetchOpenLibraryData(title, null);
+        }
     }
 
     // Construct unified object
@@ -195,7 +214,8 @@ export default async function handler(req, res) {
         // Authors logic later
         
         imageSource: null, // This comes from client, not enriching
-        source: externalData?.infoLink || null,
+        source: externalData?.source || 'Perplexity',
+        sourceUrl: externalData?.infoLink || null,
         coverImage: externalData?.coverUrl || null,
         isbn: externalData?.isbn || perplexityData?.isbn || null,
         publisher: externalData?.publisher || perplexityData?.publisher || null,
