@@ -168,6 +168,48 @@ function mergeAuthors(authorsA, authorsB) {
     return [...new Set(all)];
 }
 
+async function mergeAuthorsFuzzy(authorsA, authorsB) {
+    // Merge two arrays of author names, keeping the most detailed version of each unique name
+    const allAuthors = [...(authorsA || []), ...(authorsB || [])];
+    if (allAuthors.length === 0) return [];
+    if (allAuthors.length === 1) return allAuthors;
+
+    // Use LLM to cluster and select the most detailed version for each unique author
+    try {
+        const openai = new OpenAI({
+            apiKey: process.env.PERPLEXITY_API_KEY,
+            baseURL: "https://api.perplexity.ai"
+        });
+        const prompt = `Given the following list of author names, group together names that refer to the same person (even if formatted differently or with/without middle initials). For each group, return the single most detailed version of the name (the one with the most information, e.g., full middle names/initials). Return a JSON array of the selected names, no extra text.\n\nAuthors: ${JSON.stringify(allAuthors)}`;
+        const response = await openai.chat.completions.create({
+            model: "sonar-pro",
+            messages: [
+                { role: "system", content: "You are a helpful assistant that outputs only strict JSON." },
+                { role: "user", content: prompt },
+            ],
+        });
+        const content = response.choices[0].message.content;
+        let jsonStr = content;
+        const start = content.indexOf('[');
+        const end = content.lastIndexOf(']');
+        if (start !== -1 && end !== -1) {
+            jsonStr = content.substring(start, end + 1);
+        }
+        return JSON.parse(jsonStr);
+    } catch (e) {
+        console.error("mergeAuthorsFuzzy LLM error:", e);
+        // Fallback: naive merge, prefer longest string for each unique base name
+        const byBase = {};
+        for (const name of allAuthors) {
+            const base = name.replace(/[^a-zA-Z]/g, '').toLowerCase();
+            if (!byBase[base] || name.length > byBase[base].length) {
+                byBase[base] = name;
+            }
+        }
+        return Object.values(byBase);
+    }
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method not allowed' });
@@ -239,9 +281,9 @@ export default async function handler(req, res) {
     
     let combinedAuthors = [];
     if (externalData) {
-        combinedAuthors = mergeAuthors(gAuthors, pAuthors);
+        combinedAuthors = await mergeAuthorsFuzzy(gAuthors, pAuthors);
     } else if (perplexityData) {
-        combinedAuthors = pAuthors;
+        combinedAuthors = await mergeAuthorsFuzzy(pAuthors, []);
     } else {
         combinedAuthors = geminiAuthor;
     }
