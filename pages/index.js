@@ -366,6 +366,7 @@ export default function Home() {
                       value={selectedFolder}
                       label="Location"
                       onChange={(e) => setSelectedFolder(e.target.value)}
+                      disabled={loading}
                     >
                       {folders.map(f => (
                         <MenuItem key={f} value={f}>{f}</MenuItem>
