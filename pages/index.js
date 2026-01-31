@@ -472,10 +472,15 @@ export default function Home() {
                     </Typography>
                     <Typography variant="subtitle2" color="text.secondary">
                         {pipelineStatus === 'analysis' 
-                            ? `Found ${books.length} books. Verify titles/authors below before enriching.` 
-                            : (pipelineStatus === 'enrichment' 
-                                ? `Enriching library... ${enrichmentProgress.current} / ${enrichmentProgress.total}` 
-                                : 'Data enrichment complete. You can now manually edit details.')}
+                          ? `Found ${books.length} books. Verify titles/authors below before enriching.` 
+                          : (pipelineStatus === 'enrichment' 
+                            ? (
+                              <Box display="flex" alignItems="center" gap={2}>
+                                <CircularProgress size={24} color="secondary" />
+                                {`Enriching library... ${enrichmentProgress.current} / ${enrichmentProgress.total}`}
+                              </Box>
+                            )
+                            : 'Data enrichment complete. You can now manually edit details.')}
                     </Typography>
                   </Box>
                   {pipelineStatus === 'analysis' && (
