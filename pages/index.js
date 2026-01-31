@@ -352,36 +352,53 @@ export default function Home() {
 
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Stack spacing={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Step 1: Select Location
-              </Typography>
-              <Box display="flex" gap={2} alignItems="center">
-                <FormControl fullWidth size="small">
-                  <InputLabel>Location</InputLabel>
-                  <Select
-                    value={selectedFolder}
-                    label="Location"
-                    onChange={(e) => setSelectedFolder(e.target.value)}
+          {/* Show location/scan UI only in initial pipeline state */}
+          {pipelineStatus === 'initial' && (
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Step 1: Select Location
+                </Typography>
+                <Box display="flex" gap={2} alignItems="center">
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Location</InputLabel>
+                    <Select
+                      value={selectedFolder}
+                      label="Location"
+                      onChange={(e) => setSelectedFolder(e.target.value)}
+                    >
+                      {folders.map(f => (
+                        <MenuItem key={f} value={f}>{f}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <Button 
+                    variant="contained" 
+                    onClick={handleScan} 
+                    disabled={loading}
+                    startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
+                    sx={{ minWidth: 200 }}
                   >
-                    {folders.map(f => (
-                      <MenuItem key={f} value={f}>{f}</MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <Button 
-                  variant="contained" 
-                  onClick={handleScan} 
-                  disabled={loading}
-                  startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
-                  sx={{ minWidth: 200 }}
-                >
-                  {loading ? 'Scanning...' : 'Scan For Books'}
-                </Button>
-              </Box>
-            </CardContent>
-          </Card>
+                    {loading ? 'Scanning...' : 'Scan For Books'}
+                  </Button>
+                </Box>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* After scan, show location as header and status */}
+          {pipelineStatus !== 'initial' && (
+            <Box mb={2}>
+              <Typography variant="h5" gutterBottom>
+                {selectedFolder}
+              </Typography>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                {pipelineStatus === 'analysis' && 'Gemini scan complete. Review detected books below.'}
+                {pipelineStatus === 'enrichment' && 'Enriching book data from external sources...'}
+                {pipelineStatus === 'complete' && 'Enrichment complete. You may now manually edit details.'}
+              </Alert>
+            </Box>
+          )}
 
           <Card sx={{ bgcolor: '#f9f9f9' }}>
             <CardContent>
