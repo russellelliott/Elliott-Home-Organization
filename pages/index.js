@@ -107,7 +107,7 @@ export default function Home() {
     }
   };
 
-  const folders = ["Espana Ct Office", "Santa Cruz Cottage"];
+  const folders = ["Espana Ct Office", "Santa Cruz Cottage", "Santa Cruz House Room Tests"];
 
   const handleExtractGPS = async () => {
     setExtractingGps(true);
