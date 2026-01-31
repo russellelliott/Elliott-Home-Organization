@@ -50,10 +50,9 @@ export default function Home() {
   const [selectedFolder, setSelectedFolder] = useState('Espana Ct Office');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [enriching, setEnriching] = useState(false);
-  const [fetchingGoogle, setFetchingGoogle] = useState(false);
-  const [enrichedData, setEnrichedData] = useState({});
-  const [googleBooksData, setGoogleBooksData] = useState({});
+  const [pipelineStatus, setPipelineStatus] = useState('initial'); // 'initial' | 'analysis' | 'enrichment' | 'complete'
+  const [enrichmentProgress, setEnrichmentProgress] = useState({ current: 0, total: 0 });
+  const [showEnrichConfirm, setShowEnrichConfirm] = useState(false);
   const [gpsData, setGpsData] = useState(null);
   const [extractingGps, setExtractingGps] = useState(false);
 
@@ -65,7 +64,11 @@ export default function Home() {
   const [feedbackDetails, setFeedbackDetails] = useState('');
   const [reanalyzing, setReanalyzing] = useState(false);
 
-  // ...existing code...
+  // Manual Edit State
+  const [manualEditDialogOpen, setManualEditDialogOpen] = useState(false);
+  const [manualEditingBook, setManualEditingBook] = useState(null);
+  const [manualEditingIndex, setManualEditingIndex] = useState(null);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -160,7 +163,7 @@ export default function Home() {
   const handleScan = async () => {
     setLoading(true);
     setBooks([]);
-    setEnrichedData({});
+    setPipelineStatus('initial');
     try {
       const res = await fetch('/api/scan-shelf', {
         method: 'POST',
@@ -170,6 +173,7 @@ export default function Home() {
       const data = await res.json();
       if (res.ok) {
         setBooks(data.books);
+        setPipelineStatus('analysis');
       } else {
         alert(data.message || 'Scan failed');
       }
@@ -181,60 +185,38 @@ export default function Home() {
     }
   };
 
-  const handleEnrich = async () => {
-    setEnriching(true);
-    setFetchingGoogle(true);
-    
-    // Process in batches
-    for (const book of books) {
-      if (!enrichedData[book.title]) {
-        try {
-          const res = await fetch('/api/enrich-book', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ title: book.title, author: book.author }),
-          });
-          const details = await res.json();
-          setEnrichedData(prev => ({ ...prev, [book.title]: details }));
-        } catch (e) {
-          console.error("Failed to enrich", book.title);
-          setEnrichedData(prev => ({ ...prev, [book.title]: { error: true } }));
-        }
-      }
+  const handleStartEnrichment = () => {
+    setShowEnrichConfirm(true);
+  };
 
-      if (!googleBooksData[book.title]) {
+  const handleConfirmEnrichment = async () => {
+    setShowEnrichConfirm(false);
+    setPipelineStatus('enrichment');
+    setEnrichmentProgress({ current: 0, total: books.length });
+
+    const newBooks = [...books];
+    for (let i = 0; i < newBooks.length; i++) {
+        const book = newBooks[i];
         try {
-            let res = await fetch('/api/google-books', {
+            const res = await fetch('/api/unified-enrich', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ title: book.title, author: book.author }),
             });
-            let details = await res.json();
-
-            // Retry with just title if author search failed
-            if (details.error && book.author) {
-                console.log(`Retrying Google Books search for "${book.title}" without author`);
-                res = await fetch('/api/google-books', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ title: book.title }), 
-                });
-                details = await res.json();
-            }
+            const enriched = await res.json();
             
-            if (details.error) {
-                console.log(`Book not found in Google Books: "${book.title}"`);
-            }
-
-            setGoogleBooksData(prev => ({ ...prev, [book.title]: details }));
+            // Merge enriched data
+            newBooks[i] = { ...book, ...enriched };
+            
+            // Update state progressively
+            setBooks([...newBooks]);
+            setEnrichmentProgress({ current: i + 1, total: books.length });
+            
         } catch (e) {
-            console.error("Failed to fetch Google Books data", book.title);
-            setGoogleBooksData(prev => ({ ...prev, [book.title]: { error: true } })); 
+            console.error("Enrich failed for", book.title, e);
         }
-      }
     }
-    setEnriching(false);
-    setFetchingGoogle(false);
+    setPipelineStatus('complete');
   };
 
   const handleOpenEdit = (book, index) => {
@@ -278,18 +260,6 @@ export default function Home() {
             };
             setBooks(updatedBooks);
             
-            // Clear enriched data for this book since it changed
-            setEnrichedData(prev => {
-                const newData = { ...prev };
-                delete newData[editingBook.title];
-                return newData;
-            });
-            setGoogleBooksData(prev => {
-                const newData = { ...prev };
-                delete newData[editingBook.title];
-                return newData;
-            });
-
             handleCloseEdit();
         } else {
             alert(data.message || 'Re-analysis failed');
@@ -300,6 +270,27 @@ export default function Home() {
     } finally {
         setReanalyzing(false);
     }
+  };
+
+  const handleOpenManualEdit = (book, index) => {
+    setManualEditingBook({ ...book });
+    setManualEditingIndex(index);
+    setManualEditDialogOpen(true);
+  };
+
+  const handleCloseManualEdit = () => {
+    setManualEditDialogOpen(false);
+    setManualEditingBook(null);
+    setManualEditingIndex(null);
+  };
+
+  const handleManualSave = () => {
+    const updatedBooks = [...books];
+    updatedBooks[manualEditingIndex] = manualEditingBook;
+    setBooks(updatedBooks);
+    setManualEditDialogOpen(false);
+    setManualEditingBook(null);
+    setManualEditingIndex(null);
   };
 
   if (authLoading) return (
@@ -459,136 +450,96 @@ export default function Home() {
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Box>
                     <Typography variant="h6">
-                        Step 2: Review & Correct
+                        {pipelineStatus === 'analysis' ? 'Stage 1: Verify Analysis' : 'Stage 2: Enrichment & Review'}
                     </Typography>
                     <Typography variant="subtitle2" color="text.secondary">
-                        Found {books.length} books. Verify titles/authors below before enriching.
+                        {pipelineStatus === 'analysis' 
+                            ? `Found ${books.length} books. Verify titles/authors below before enriching.` 
+                            : (pipelineStatus === 'enrichment' 
+                                ? `Enriching library... ${enrichmentProgress.current} / ${enrichmentProgress.total}` 
+                                : 'Data enrichment complete. You can now manually edit details.')}
                     </Typography>
                   </Box>
-                </Box>
-                
-                <Box mb={2}>
-                    <Typography variant="h6">
-                        Step 3: Enrich Data
-                    </Typography>
+                  {pipelineStatus === 'analysis' && (
                     <Button 
                         variant="contained" 
                         color="secondary"
-                        onClick={handleEnrich} 
-                        disabled={enriching}
-                        startIcon={enriching ? <CircularProgress size={20} color="inherit" /> : <AutoStoriesIcon />}
+                        onClick={handleStartEnrichment} 
+                        startIcon={<AutoStoriesIcon />}
                     >
-                        {enriching ? 'Fetching Details...' : 'Get Enriched Information'}
+                        Get Enriched Information
                     </Button>
+                  )}
                 </Box>
 
                 <TableContainer component={Paper} variant="outlined">
-                  <Table>
+                  <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: 'action.hover' }}>
-                        <TableCell>Edit</TableCell>
-                        <TableCell>Detected Title</TableCell>
-                        <TableCell>Detected Author</TableCell>
+                        <TableCell width={50}>Edit</TableCell>
+                        <TableCell>{pipelineStatus === 'analysis' ? 'Detected Title' : 'Title'}</TableCell>
+                        <TableCell>{pipelineStatus === 'analysis' ? 'Detected Author' : 'Author(s)'}</TableCell>
                         <TableCell>Image Source</TableCell>
-                        <TableCell>Details (Perplexity)</TableCell>
-                        <TableCell>Details (Google Books)</TableCell>
+                        
+                        {(pipelineStatus === 'enrichment' || pipelineStatus === 'complete') && (
+                            <>
+                                <TableCell>Cover</TableCell>
+                                <TableCell>Publisher</TableCell>
+                                <TableCell>Year</TableCell>
+                                <TableCell>ISBN</TableCell>
+                                <TableCell>Source</TableCell>
+                                <TableCell>Description</TableCell>
+                            </>
+                        )}
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {books.map((book, idx) => (
                         <TableRow key={idx}>
-                          <TableCell sx={{ verticalAlign: 'top' }}>
-                            <IconButton onClick={() => handleOpenEdit(book, idx)} size="small">
-                                <EditIcon fontSize="small" />
-                            </IconButton>
-                          </TableCell>
-                          <TableCell sx={{ verticalAlign: 'top' }}>{book.title}</TableCell>
-                          <TableCell sx={{ verticalAlign: 'top' }}>{book.author}</TableCell>
-                          <TableCell sx={{ verticalAlign: 'top' }}>
-                            {book.sources ? (Array.isArray(book.sources) ? book.sources.join(', ') : book.sources) : '-'}
-                          </TableCell>
-                          <TableCell sx={{ verticalAlign: 'top' }}>
-                            {enrichedData[book.title] ? (
-                              enrichedData[book.title].error ? (
-                                <Alert severity="error" size="small">Error fetching details</Alert>
-                              ) : (
-                                <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                                  <Box component="li"><strong>Authors:</strong> {Array.isArray(enrichedData[book.title].authors) ? enrichedData[book.title].authors.join(', ') : enrichedData[book.title].authors}</Box>
-                                  <Box component="li"><strong>ISBN:</strong> {enrichedData[book.title].isbn}</Box>
-                                  <Box component="li"><strong>Publisher:</strong> {enrichedData[book.title].publisher}</Box>
-                                  <Box component="li"><strong>Year:</strong> {enrichedData[book.title].publicationDate}</Box>
-                                </Box>
-                              )
+                          <TableCell>
+                            {pipelineStatus === 'analysis' ? (
+                                <IconButton onClick={() => handleOpenEdit(book, idx)} size="small">
+                                    <EditIcon fontSize="small" />
+                                </IconButton>
                             ) : (
-                              <Typography variant="body2" color="text.secondary">
-                                {enriching ? 'Pending...' : '-'}
-                              </Typography>
+                                pipelineStatus === 'complete' && (
+                                    <IconButton size="small" onClick={() => handleOpenManualEdit(book, idx)}>
+                                        <EditIcon fontSize="small" />
+                                    </IconButton>
+                                )
                             )}
                           </TableCell>
-                          <TableCell sx={{ verticalAlign: 'top' }}>
-                             {googleBooksData[book.title] ? (
-                                googleBooksData[book.title].error ? (
-                                    <Alert severity="warning" size="small">Book not found in any database</Alert>
-                                ) : (
-                                    <Box display="flex" gap={2}>
-                                        {googleBooksData[book.title].thumbnail && (
-                                            <img src={googleBooksData[book.title].thumbnail} alt="Cover" style={{ width: '60px', height: 'auto', alignSelf: 'flex-start' }} />
-                                        )}
-                                        <Box component="ul" sx={{ m: 0, pl: 2 }}>
-                                            <Box component="li">
-                                                <strong>Source:</strong> 
-                                                <Typography 
-                                                  component="a" 
-                                                  href={googleBooksData[book.title].canonicalVolumeLink} 
-                                                  target="_blank" 
-                                                  rel="noopener noreferrer"
-                                                  variant="caption" 
-                                                  sx={{ 
-                                                    ml: 1, 
-                                                    px: 1, 
-                                                    py: 0.5, 
-                                                    bgcolor: 'action.selected', 
-                                                    borderRadius: 1,
-                                                    textDecoration: 'none',
-                                                    color: 'text.primary',
-                                                    transition: 'background-color 0.2s',
-                                                    '&:hover': {
-                                                      bgcolor: 'action.focus', 
-                                                      cursor: 'pointer'
-                                                    }
-                                                  }}
-                                                >
-                                                    {googleBooksData[book.title].source || 'Google Books'}
-                                                </Typography>
-                                            </Box>
-                                            <Box component="li"><strong>Title:</strong> {googleBooksData[book.title].title}</Box>
-                                            <Box component="li"><strong>Authors:</strong> {Array.isArray(googleBooksData[book.title].authors) ? googleBooksData[book.title].authors.join(', ') : googleBooksData[book.title].authors}</Box>
-                                            <Box component="li"><strong>ISBN:</strong> {googleBooksData[book.title].isbn || 'N/A'}</Box>
-                                            <Box component="li"><strong>Publisher:</strong> {googleBooksData[book.title].publisher}</Box>
-                                            <Box component="li"><strong>Date:</strong> {googleBooksData[book.title].publishedDate}</Box>
-                                            {googleBooksData[book.title].description && (
-                                                <Box component="li">
-                                                    <strong>Description:</strong>
-                                                    <Typography variant="body2" sx={{ 
-                                                        display: '-webkit-box', 
-                                                        overflow: 'hidden', 
-                                                        WebkitBoxOrient: 'vertical', 
-                                                        WebkitLineClamp: 4,
-                                                        maxHeight: '6em' 
-                                                    }}>
-                                                        {googleBooksData[book.title].description}
-                                                    </Typography>
-                                                </Box>
-                                            )}
-                                        </Box>
-                                    </Box>
-                                )
-                             ) : (
-                                <Typography variant="body2" color="text.secondary">
-                                    {fetchingGoogle ? 'Pending...' : '-'}
-                                </Typography>
-                             )}
+                          
+                          <TableCell sx={{ color: (pipelineStatus !== 'analysis') ? 'text.secondary' : 'inherit' }}>
+                              {book.title}
                           </TableCell>
+                          <TableCell sx={{ color: (pipelineStatus !== 'analysis') ? 'text.secondary' : 'inherit' }}>
+                              {Array.isArray(book.authors) ? book.authors.join(', ') : (book.authors || book.author)}
+                          </TableCell>
+                          <TableCell sx={{ color: 'text.secondary' }}>
+                            {book.sources ? (Array.isArray(book.sources) ? book.sources.map(s => s.split('/').pop()).join(', ') : book.sources) : '-'}
+                          </TableCell>
+
+                          {(pipelineStatus === 'enrichment' || pipelineStatus === 'complete') && (
+                            <>
+                                <TableCell>
+                                    {book.coverImage && <img src={book.coverImage} alt="Cover" style={{ height: 40 }} />}
+                                </TableCell>
+                                <TableCell>{book.publisher}</TableCell>
+                                <TableCell>{book.publicationDate}</TableCell>
+                                <TableCell>{book.isbn}</TableCell>
+                                <TableCell>
+                                    {book.source && (
+                                        <Typography component="a" href={book.source} target="_blank" rel="noopener noreferrer" variant="caption">
+                                            Link
+                                        </Typography>
+                                    )}
+                                </TableCell>
+                                <TableCell sx={{ maxWidth: 300, fontSize: '0.75rem' }}>
+                                    {book.description}
+                                </TableCell>
+                            </>
+                          )}
                         </TableRow>
                       ))}
                     </TableBody>
@@ -599,6 +550,24 @@ export default function Home() {
           )}
         </Stack>
       </Container>
+
+
+      {/* Enrichment Confirmation Dialog */}
+      <Dialog open={showEnrichConfirm} onClose={() => setShowEnrichConfirm(false)}>
+        <DialogTitle>Start Enrichment?</DialogTitle>
+        <DialogContent>
+            <Typography>
+                Once you proceed, you cannot redo the initial Gemini image analysis for these books.
+                We will fetch detailed metadata from Perplexity and Google Books.
+            </Typography>
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setShowEnrichConfirm(false)}>Cancel</Button>
+            <Button onClick={handleConfirmEnrichment} variant="contained" color="primary">
+                Get Enriched Information
+            </Button>
+        </DialogActions>
+      </Dialog>
 
 
       {/* Edit Dialog */}
@@ -642,6 +611,75 @@ export default function Home() {
             <Button onClick={handleReanalyze} variant="contained" disabled={reanalyzing}>
                 {reanalyzing ? 'Analyzing...' : 'Redo Analysis'}
             </Button>
+        </DialogActions>
+      </Dialog>
+
+
+      {/* Manual Edit Dialog */}
+      <Dialog open={manualEditDialogOpen} onClose={() => setManualEditDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Manual Book Edit</DialogTitle>
+        <DialogContent>
+            <Typography variant="body2" gutterBottom>
+                Editing: <strong>{manualEditingBook?.title}</strong>
+            </Typography>
+            
+            <Box mt={2} display="flex" flexDirection="column" gap={2}>
+                 <TextField
+                    disabled
+                    label="Title (Read Only)"
+                    variant="outlined"
+                    value={manualEditingBook?.title || ''}
+                    fullWidth
+                 />
+                 <TextField
+                    disabled
+                    label="Author (Read Only)"
+                    variant="outlined"
+                    value={Array.isArray(manualEditingBook?.authors) ? manualEditingBook.authors.join(', ') : (manualEditingBook?.authors || manualEditingBook?.author || '')}
+                    fullWidth
+                 />
+                 <TextField
+                    label="Publisher"
+                    variant="outlined"
+                    value={manualEditingBook?.publisher || ''}
+                    onChange={(e) => setManualEditingBook({...manualEditingBook, publisher: e.target.value})}
+                    fullWidth
+                 />
+                 <Box display="flex" gap={2}>
+                    <TextField
+                        label="Resulting ISBN"
+                        variant="outlined"
+                        value={manualEditingBook?.isbn || ''}
+                        onChange={(e) => setManualEditingBook({...manualEditingBook, isbn: e.target.value})}
+                        fullWidth
+                    />
+                    <TextField
+                        label="Publication Date"
+                        variant="outlined"
+                        value={manualEditingBook?.publicationDate || ''}
+                        onChange={(e) => setManualEditingBook({...manualEditingBook, publicationDate: e.target.value})}
+                        fullWidth
+                    />
+                 </Box>
+                  <TextField
+                    label="Description"
+                    multiline
+                    rows={4}
+                    variant="outlined"
+                    value={manualEditingBook?.description || ''}
+                    onChange={(e) => setManualEditingBook({...manualEditingBook, description: e.target.value})}
+                    fullWidth
+                 />
+                 {manualEditingBook?.source && (
+                     <Typography variant="caption">
+                         <a href={manualEditingBook.source} target="_blank" rel="noreferrer">Reference Link</a>
+                     </Typography>
+                 )}
+            </Box>
+        </DialogContent>
+        <DialogActions>
+            <Button onClick={() => setManualEditDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleManualSave} variant="contained">Save Changes</Button>
         </DialogActions>
       </Dialog>
     </>
