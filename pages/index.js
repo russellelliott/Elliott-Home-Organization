@@ -357,7 +357,7 @@ export default function Home() {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  Step 1: Select Location
+                  {pipelineStatus === 'initial' ? 'Select Location' : null}
                 </Typography>
                 <Box display="flex" gap={2} alignItems="center">
                   <FormControl fullWidth size="small">
@@ -468,7 +468,7 @@ export default function Home() {
                 <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
                   <Box>
                     <Typography variant="h6">
-                        {pipelineStatus === 'analysis' ? 'Stage 1: Verify Analysis' : 'Stage 2: Enrichment & Review'}
+                        {pipelineStatus === 'analysis' ? 'Verify Detected Books' : 'Enrichment & Review'}
                     </Typography>
                     <Typography variant="subtitle2" color="text.secondary">
                         {pipelineStatus === 'analysis' 
