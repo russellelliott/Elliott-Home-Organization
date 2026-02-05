@@ -9,7 +9,8 @@ import {
   Box,
   TextField,
   InputAdornment,
-  TablePagination
+  TablePagination,
+  Link
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import SearchIcon from '@mui/icons-material/Search';
@@ -41,39 +42,10 @@ const BookCover = ({ url }) => {
   );
 };
 
-export default function BooksList() {
-  const [books, setBooks] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [pageSize, setPageSize] = useState(10);
+export default function BooksList({ books }) {
+  // const [books, setBooks] = useState([]); // Now coming from props
+  // const [loading, setLoading] = useState(true); // SSR is 'loading' until page arrives, so we can ignore or set false
   
-  // Search state is handled by DataGrid's Quick Filter usually, 
-  // but we can add specific filters if needed.
-  // For standard MUI DataGrid, the GridToolbar includes a quick filter.
-
-  useEffect(() => {
-    const fetchBooks = async () => {
-      try {
-        const booksRef = collection(db, 'books');
-        // const q = query(booksRef, orderBy('createdAt', 'desc')); // Assuming createdAt or similar
-        const q = query(booksRef);
-        const querySnapshot = await getDocs(q);
-        
-        const booksData = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-        
-        setBooks(booksData);
-      } catch (error) {
-        console.error("Error fetching books:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBooks();
-  }, []);
-
   const columns = [
     { 
       field: 'cover', 
@@ -92,7 +64,19 @@ export default function BooksList() {
     { field: 'publisher', headerName: 'Publisher', flex: 0.6, minWidth: 120 },
     { field: 'publishedDate', headerName: 'Published', width: 100 },
     { field: 'isbn', headerName: 'ISBN', width: 130 },
-    { field: 'locationId', headerName: 'Location', width: 100 },
+    { field: 'locationName', headerName: 'Location', width: 150 }, 
+    { 
+      field: 'source', 
+      headerName: 'Source', 
+      width: 130,
+      renderCell: (params) => (
+        params.value ? (
+          <Link href={params.value} target="_blank" rel="noopener noreferrer">
+            {params.row.sourceLabel || "Link"}
+          </Link>
+        ) : null
+      )
+    },
     { field: 'description', headerName: 'Description', flex: 1.5, minWidth: 250 },
   ];
 
@@ -106,7 +90,6 @@ export default function BooksList() {
         <DataGrid
           rows={books}
           columns={columns}
-          loading={loading}
           initialState={{
             pagination: {
               paginationModel: { pageSize: 10, page: 0 },
@@ -124,4 +107,63 @@ export default function BooksList() {
       </Paper>
     </Container>
   );
+}
+
+export async function getServerSideProps() {
+  try {
+    // 1. Fetch Locations Map
+    const locationsRef = collection(db, 'locations');
+    const locationsSnapshot = await getDocs(locationsRef);
+    const locationsMap = {};
+    locationsSnapshot.forEach(doc => {
+      // Assuming location document has a 'name' field, or use ID as fallback
+      const data = doc.data();
+      // Try to find a sensible name field. If the user hasn't specified schema, we might need to guess 
+      // or just check common fields. But user said "accessing the locations collection" implies they exist.
+      // We'll assume 'name' exists based on typical schemas.
+      locationsMap[doc.id] = data.name || data.title || doc.id;
+    });
+
+    // 2. Fetch Books
+    const booksRef = collection(db, 'books');
+    const q = query(booksRef);
+    const querySnapshot = await getDocs(q);
+
+    const books = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      
+      // Serialize helper for Firestore timestamps if any
+      const serialize = (obj) => JSON.parse(JSON.stringify(obj));
+      
+      // Resolve Location
+      const locName = data.locationId ? (locationsMap[data.locationId] || data.locationId) : '';
+
+      // Resolve Source Label
+      let sourceLabel = 'Link';
+      if (data.source) {
+        if (data.source.includes('books.google')) sourceLabel = 'Google Books';
+        else if (data.source.includes('openlibrary.org')) sourceLabel = 'OpenLibrary';
+      }
+
+      return {
+        id: doc.id,
+        ...serialize(data),
+        locationName: locName,
+        sourceLabel: sourceLabel
+      };
+    });
+
+    return {
+      props: {
+        books,
+      },
+    };
+  } catch (error) {
+    console.error("Server-side fetch error:", error);
+    return {
+      props: {
+        books: [],
+      },
+    };
+  }
 }
