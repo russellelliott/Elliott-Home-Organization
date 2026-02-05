@@ -35,7 +35,8 @@ import {
   FormControlLabel,
   Radio,
   RadioGroup,
-  TextField
+  TextField,
+  Grid
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import SearchIcon from '@mui/icons-material/Search';
@@ -43,6 +44,7 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import LibraryBooksIcon from '@mui/icons-material/LibraryBooks';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import EditIcon from '@mui/icons-material/Edit';
+import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 export default function Home() {
   const [user, setUser] = useState(null);
@@ -198,25 +200,47 @@ export default function Home() {
     for (let i = 0; i < newBooks.length; i++) {
         const book = newBooks[i];
         try {
-            const res = await fetch('/api/unified-enrich', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ title: book.title, author: book.author }),
-            });
-            const enriched = await res.json();
-            
-            // Merge enriched data
-            newBooks[i] = { ...book, ...enriched };
-            
-            // Update state progressively
-            setBooks([...newBooks]);
-            setEnrichmentProgress({ current: i + 1, total: books.length });
-            
-        } catch (e) {
-            console.error("Enrich failed for", book.title, e);
+          const res = await fetch('/api/enrich-book', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ book }),
+          });
+          const enrichedBook = await res.json();
+          newBooks[i] = enrichedBook;
+          setBooks([...newBooks]); 
+          setEnrichmentProgress({ current: i + 1, total: books.length });
+        } catch (err) {
+            console.error(err);
         }
     }
+    setBooks(newBooks);
     setPipelineStatus('complete');
+  };
+
+  const handleSyncToFirebase = async () => {
+      if (!confirm('Are you sure you want to upload these books to Firebase? This may take a while.')) return;
+      
+      setPipelineStatus('syncing');
+      try {
+          const res = await fetch('/api/sync-batch', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ books, folder: selectedFolder }),
+          });
+          
+          const data = await res.json();
+          if (res.ok) {
+              alert(`Sync Complete! Synced: ${data.results.synced}, Failed: ${data.results.failed}`);
+              window.location.href = '/books';
+          } else {
+              alert('Sync failed: ' + data.message);
+          }
+      } catch (err) {
+          console.error(err);
+          alert('Error during sync');
+      } finally {
+          setPipelineStatus('complete');
+      }
   };
 
   const handleOpenEdit = (book, index) => {
@@ -483,16 +507,28 @@ export default function Home() {
                             : 'Data enrichment complete. You can now manually edit details.')}
                     </Typography>
                   </Box>
-                  {pipelineStatus === 'analysis' && (
-                    <Button 
-                        variant="contained" 
-                        color="secondary"
-                        onClick={handleStartEnrichment} 
-                        startIcon={<AutoStoriesIcon />}
-                    >
-                        Get Enriched Information
-                    </Button>
-                  )}
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    {pipelineStatus === 'analysis' && (
+                      <Button 
+                          variant="contained" 
+                          color="secondary"
+                          onClick={handleStartEnrichment} 
+                          startIcon={<AutoStoriesIcon />}
+                      >
+                          Get Enriched Information
+                      </Button>
+                    )}
+                    {pipelineStatus === 'complete' && (
+                       <Button 
+                          variant="contained" 
+                          color="secondary"
+                          onClick={handleSyncToFirebase} 
+                          startIcon={<CloudUploadIcon />}
+                      >
+                          Sync to Firebase
+                      </Button>
+                    )}
+                  </Box>
                 </Box>
 
                 <TableContainer component={Paper} variant="outlined">

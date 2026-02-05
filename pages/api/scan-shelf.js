@@ -24,7 +24,9 @@ export default async function handler(req, res) {
   }
 
   try {
-    const baseDir = "/Users/russellelliott/Desktop/Elliott Home Organization/Library Images";
+    // Resolve path relative to the project root (bookshelf-scanner)
+    // Assuming 'Library Images' is a sibling folder to 'bookshelf-scanner'
+    const baseDir = path.resolve(process.cwd(), '../Library Images');
     const targetDir = path.join(baseDir, folder);
 
     if (!fs.existsSync(targetDir)) {
