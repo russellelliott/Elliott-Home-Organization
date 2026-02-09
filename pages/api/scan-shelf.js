@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ message: 'Method not allowed' });
   }
 
-  const { folder } = req.body;
+  const { folder, targetFiles } = req.body;
   if (!folder) {
     return res.status(400).json({ message: 'Folder name is required' });
   }
@@ -34,12 +34,17 @@ export default async function handler(req, res) {
     }
 
     const files = fs.readdirSync(targetDir);
-    const imageFiles = files.filter(file => 
+    let imageFiles = files.filter(file => 
       ['.heic', '.jpg', '.jpeg', '.png', '.webp'].includes(path.extname(file).toLowerCase())
     );
 
+    if (targetFiles && Array.isArray(targetFiles) && targetFiles.length > 0) {
+      const targetSet = new Set(targetFiles);
+      imageFiles = imageFiles.filter(f => targetSet.has(f));
+    }
+
     if (imageFiles.length === 0) {
-      return res.status(404).json({ message: 'No images found in folder' });
+      return res.status(404).json({ message: 'No images found in folder or no matching target files' });
     }
 
     const parts = [];

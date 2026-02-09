@@ -121,6 +121,7 @@ export default async function handler(req, res) {
                     imagePath: downloadURL,
                     fileHash: hash,
                     locationId: locationId,
+                    dateAdded: new Date().toISOString(),
                     syncedAt: new Date().toISOString()
                 });
 

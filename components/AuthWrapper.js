@@ -1,31 +1,21 @@
-import { useRouter } from 'next/router';
 import { useAuth } from '../context/AuthContext';
-import { useEffect } from 'react';
+import { CircularProgress, Box } from '@mui/material';
+import Login from './Login';
 
 export default function AuthWrapper({ children }) {
   const { user, loading } = useAuth();
-  const router = useRouter();
 
-  // Define which pages don't require login (just the home/login page)
-  const publicPaths = ['/'];
-  const isPublicPath = publicPaths.includes(router.pathname);
-
-  useEffect(() => {
-    if (!loading && !user && !isPublicPath) {
-      router.replace('/');
-    }
-  }, [user, loading, router, isPublicPath]);
-
-  // 1. Show nothing while checking auth state
   if (loading) {
-    return null; // Or a global loading spinner
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <CircularProgress />
+      </Box>
+    );
   }
 
-  // 2. If it's a private page and no user, return nothing (redirecting...)
-  if (!user && !isPublicPath) {
-    return null;
+  if (!user) {
+    return <Login />;
   }
 
-  // 3. Otherwise, show the app
   return children;
 }

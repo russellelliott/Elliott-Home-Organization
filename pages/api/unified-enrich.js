@@ -98,9 +98,14 @@ async function fetchGoogleBooksData(title, author) {
 
         if (items.length > 0) {
             const book = items[0].volumeInfo;
-            // Best effort high res image
+            // Collect all cover images
+            const coverUrls = [];
             const imageLinks = book.imageLinks || {};
-            const coverUrl = imageLinks.extraLarge || imageLinks.large || imageLinks.medium || imageLinks.thumbnail || imageLinks.smallThumbnail;
+            if (imageLinks.extraLarge) coverUrls.push(imageLinks.extraLarge);
+            if (imageLinks.large) coverUrls.push(imageLinks.large);
+            if (imageLinks.medium) coverUrls.push(imageLinks.medium);
+            if (imageLinks.thumbnail) coverUrls.push(imageLinks.thumbnail);
+            if (imageLinks.smallThumbnail) coverUrls.push(imageLinks.smallThumbnail);
 
             return {
                 source: 'Google Books',
@@ -111,7 +116,7 @@ async function fetchGoogleBooksData(title, author) {
                 description: book.description,
                 isbn: book.industryIdentifiers?.find(id => id.type === "ISBN_13")?.identifier || 
                       book.industryIdentifiers?.find(id => id.type === "ISBN_10")?.identifier,
-                coverUrl: coverUrl,
+                coverUrls: coverUrls,
                 infoLink: book.infoLink
             };
         }
@@ -131,11 +136,23 @@ async function fetchOpenLibraryData(title, author) {
             olQuery += `&author=${encodeURIComponent(author)}`;
         }
         const url = `https://openlibrary.org/search.json?${olQuery}&limit=1`;
-        const res = await fetch(url);
+        const res = await fetch(url, {
+             headers: {
+                 'User-Agent': 'Elliott-Home-Organization/1.0 (russ.elliott001@gmail.com)'
+             }
+        });
         const data = await res.json();
         
         if (data.docs && data.docs.length > 0) {
             const doc = data.docs[0];
+            
+            const coverUrls = [];
+            if (doc.cover_i) {
+                coverUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`);
+                coverUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`);
+                coverUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-S.jpg`);
+            }
+
             return {
                 source: 'Open Library',
                 title: doc.title,
@@ -143,7 +160,7 @@ async function fetchOpenLibraryData(title, author) {
                 publisher: doc.publisher ? doc.publisher[0] : null,
                 publicationDate: doc.first_publish_year ? String(doc.first_publish_year) : null,
                 isbn: doc.isbn ? doc.isbn[0] : null,
-                coverUrl: doc.cover_i ? `https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg` : null,
+                coverUrls: coverUrls,
                 infoLink: `https://openlibrary.org${doc.key}`,
                 sourceUrl: `https://openlibrary.org${doc.key}`
             };

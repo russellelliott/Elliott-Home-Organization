@@ -24,11 +24,18 @@ export default function Navbar() {
         <Typography 
             variant="h6" 
             component="div" 
-            sx={{ flexGrow: 1, cursor: 'pointer' }}
+            sx={{ mr: 4, cursor: 'pointer' }}
             onClick={() => router.push('/')}
         >
           Elliott Home Organizer
         </Typography>
+
+        <Box sx={{ flexGrow: 1 }}>
+            <Button color="inherit" onClick={() => router.push('/')}>Books</Button>
+            <Button color="inherit" onClick={() => router.push('/upload')}>Upload</Button>
+            <Button color="inherit" onClick={() => router.push('/processing')}>Processing</Button>
+        </Box>
+
         <Box display="flex" alignItems="center" gap={2}>
           {user.photoURL && <Avatar src={user.photoURL} alt="Profile" />}
           <Button color="inherit" onClick={handleLogout}>Sign Out</Button>
