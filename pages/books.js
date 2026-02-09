@@ -1,7 +1,6 @@
 
 import { useState, useEffect } from 'react';
-import { db } from '../lib/firebase';
-import { collection, getDocs, orderBy, query } from 'firebase/firestore';
+import { adminDb } from '../lib/firebase-admin';
 import {
   Container,
   Typography,
@@ -112,8 +111,8 @@ export default function BooksList({ books }) {
 export async function getServerSideProps() {
   try {
     // 1. Fetch Locations Map
-    const locationsRef = collection(db, 'locations');
-    const locationsSnapshot = await getDocs(locationsRef);
+    const locationsRef = adminDb.collection('locations');
+    const locationsSnapshot = await locationsRef.get();
     const locationsMap = {};
     locationsSnapshot.forEach(doc => {
       // Assuming location document has a 'name' field, or use ID as fallback
@@ -125,9 +124,8 @@ export async function getServerSideProps() {
     });
 
     // 2. Fetch Books
-    const booksRef = collection(db, 'books');
-    const q = query(booksRef);
-    const querySnapshot = await getDocs(q);
+    const booksRef = adminDb.collection('books');
+    const querySnapshot = await booksRef.get();
 
     const books = querySnapshot.docs.map(doc => {
       const data = doc.data();
