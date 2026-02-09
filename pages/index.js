@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
+import { useAuth } from '../context/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
-  AppBar,
-  Toolbar,
-  Typography,
   Button,
   Container,
   Box,
@@ -21,7 +19,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Avatar,
   CircularProgress,
   FormControl,
   InputLabel,
@@ -36,7 +33,8 @@ import {
   Radio,
   RadioGroup,
   TextField,
-  Grid
+  Grid,
+  Typography
 } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import SearchIcon from '@mui/icons-material/Search';
@@ -47,8 +45,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 
 export default function Home() {
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
+  const { user, loading: authLoading } = useAuth();
   const [selectedFolder, setSelectedFolder] = useState('Espana Ct Office');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -71,14 +68,6 @@ export default function Home() {
   const [manualEditingBook, setManualEditingBook] = useState(null);
   const [manualEditingIndex, setManualEditingIndex] = useState(null);
 
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
     try {
@@ -98,14 +87,6 @@ export default function Home() {
       }
     } catch (error) {
       console.error("Login failed", error);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Logout failed", error);
     }
   };
 
@@ -362,18 +343,6 @@ export default function Home() {
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
-      <AppBar position="static">
-        <Toolbar>
-          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-            Elliott Home Organizer
-          </Typography>
-          <Box display="flex" alignItems="center" gap={2}>
-            {user.photoURL && <Avatar src={user.photoURL} alt="Profile" />}
-            <Button color="inherit" onClick={handleLogout}>Sign Out</Button>
-          </Box>
-        </Toolbar>
-      </AppBar>
-
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
         <Stack spacing={4}>
           {/* Show location/scan UI only in initial pipeline state */}
@@ -381,7 +350,7 @@ export default function Home() {
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
-                  {pipelineStatus === 'initial' ? 'Select Location' : null}
+                  Select Location
                 </Typography>
                 <Box display="flex" gap={2} alignItems="center">
                   <FormControl fullWidth size="small">
