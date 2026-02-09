@@ -92,18 +92,18 @@ export default function BooksList({ books }) {
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
+    <Container maxWidth="xl" sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', py: 2 }}>
       <Typography variant="h4" gutterBottom>
         My Library
       </Typography>
       
-      <Paper sx={{ height: 700, width: '100%' }}>
+      <Paper sx={{ flexGrow: 1, width: '100%', overflow: 'hidden' }}>
         <DataGrid
           rows={books}
           columns={columns}
           initialState={{
             pagination: {
-              paginationModel: { pageSize: 10, page: 0 },
+              paginationModel: { pageSize: 25, page: 0 },
             },
           }}
           pageSizeOptions={[10, 25, 50, 100]}
@@ -114,6 +114,7 @@ export default function BooksList({ books }) {
             },
           }}
           disableRowSelectionOnClick
+          sx={{ border: 0 }}
         />
       </Paper>
 
