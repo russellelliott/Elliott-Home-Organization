@@ -59,12 +59,7 @@ export default function BooksList({ books }) {
       headerName: 'Cover', 
       width: 70, 
       renderCell: (params) => {
-        // Handle cover array or single string or imagePath fallback
-        const imgUrl = (Array.isArray(params.row.coverImages) && params.row.coverImages.length > 0)
-          ? params.row.coverImages[0]
-          : (params.row.cover || '');
-          
-        return <BookCover url={imgUrl} />;
+        return <BookCover url={params.value || ''} />;
       }
     },
     { field: 'title', headerName: 'Title', flex: 1, minWidth: 200 },
@@ -169,21 +164,29 @@ export async function getServerSideProps() {
         else if (data.source.includes('openlibrary')) sourceLabel = 'OpenLibrary';
       }
 
+      // Handle Authors string vs array
+      const rawAuthors = data.authors || data.author;
+      const authorsList = Array.isArray(rawAuthors) ? rawAuthors : (rawAuthors ? [rawAuthors] : []);
+
+      // Determine best cover image
+      // Priority: coverImages list -> coverImage string -> cover string -> imagePaths shelf scan
+      const coverUrl = (data.coverImages && data.coverImages.length > 0) ? data.coverImages[0] :
+                       (data.coverImage || data.cover || (data.imagePaths && data.imagePaths.length > 0 ? data.imagePaths[0] : ''));
+
       // Projection for Slimming Payload
       return {
         id: doc.id,
         title: data.title || 'Untitled',
-        authors: data.authors || (data.author ? [data.author] : []),
+        authors: authorsList.join(', '), // Flatten for DataGrid
         publisher: data.publisher || '',
         publishedDate: data.publishedDate || '',
         isbn: data.isbn || '',
         locationName: locName,
         locationId: data.locationId || '', // Pass through for shelf view
         sourceLabel: sourceLabel,
-        description: data.description ? data.description.substring(0, 500) : '', // Truncate description?
-        cover: data.coverImages && data.coverImages.length > 0 ? data.coverImages[0] : (data.coverImage || ''),
-        coverImages: data.coverImages || [],
-        sourceUrl: data.sourceUrl || '',
+        description: data.description ? data.description.substring(0, 500) : '',
+        cover: coverUrl,
+        sourceUrl: data.sourceUrl || data.source || '',
         sourceFile: (data.sources && Array.isArray(data.sources)) ? data.sources[0] : null // First source file
       };
     });
