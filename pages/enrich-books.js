@@ -7,6 +7,10 @@ export default function EnrichBooksPage() {
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
 
+  const processedCount = result
+    ? (result.updated || 0) + (result.skipped || 0) + ((result.errors && result.errors.length) || 0)
+    : 0;
+
   async function runEnrich() {
     setRunning(true);
     setResult(null);
@@ -44,13 +48,20 @@ export default function EnrichBooksPage() {
         <Button variant="contained" color="primary" onClick={runEnrich} disabled={running}>
           Run Enrichment
         </Button>
-        {running && <CircularProgress size={24} />}
+        {running && (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CircularProgress size={24} />
+            <Typography variant="body2" color="text.secondary">Processing books...</Typography>
+          </Box>
+        )}
       </Box>
 
       {error && <Alert severity="error">{error}</Alert>}
       {result && (
         <Box sx={{ mt: 2 }}>
-          <Alert severity="success">Updated: {result.updated} — Skipped: {result.skipped}</Alert>
+          <Alert severity="success">
+            Processed: {processedCount} books | Updated: {result.updated || 0} | Skipped: {result.skipped || 0} | Errors: {(result.errors && result.errors.length) || 0}
+          </Alert>
           {result.errors && result.errors.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="subtitle1">Errors</Typography>
