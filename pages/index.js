@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import Head from 'next/head';
 import { adminDb } from '../lib/firebase-admin';
+import { useRouter } from 'next/router';
 import {
   Container,
   Typography,
@@ -31,7 +32,14 @@ const BookCover = ({ url }) => {
     }
   };
 
-  if (!src) return null;
+  if (!src) {
+    // Placeholder small cover when no src available
+    return (
+      <Box sx={{ width: '100%', height: '100%', bgcolor: '#0b3d91', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', px: 1 }}>
+        <Box sx={{ fontSize: 11, textAlign: 'center' }}>No cover</Box>
+      </Box>
+    );
+  }
 
   return (
     <Box 
@@ -47,6 +55,7 @@ const BookCover = ({ url }) => {
 export default function BooksList({ books }) {
   const [viewShelfOpen, setViewShelfOpen] = useState(false);
   const [shelfImageInfo, setShelfImageInfo] = useState(null);
+  const router = useRouter();
 
   const handleViewShelf = (row) => {
       // Use locationId as the folder name, assuming it maps to directory structure
@@ -55,11 +64,12 @@ export default function BooksList({ books }) {
   };
   
   const columns = [
-    { 
-      field: 'cover', 
-      headerName: 'Cover', 
-      width: 70, 
+    {
+      field: 'cover',
+      headerName: 'Cover',
+      width: 70,
       renderCell: (params) => {
+        // `cover` contains the smallest available cover URL for the table
         return <BookCover url={params.value || ''} />;
       }
     },
@@ -119,6 +129,10 @@ export default function BooksList({ books }) {
             },
           }}
           disableRowSelectionOnClick
+          onRowClick={(params) => {
+            // Navigate to individual book page using the document id as slug
+            router.push(`/book/${params.id}`);
+          }}
           sx={{ border: 0 }}
         />
       </Paper>
@@ -174,10 +188,40 @@ export async function getServerSideProps() {
       const rawAuthors = data.authors || data.author;
       const authorsList = Array.isArray(rawAuthors) ? rawAuthors : (rawAuthors ? [rawAuthors] : []);
 
-      // Determine best cover image
-      // Priority: coverImages list -> coverImage string -> cover string -> imagePaths shelf scan
-      const coverUrl = (data.coverImages && data.coverImages.length > 0) ? data.coverImages[0] :
-                       (data.coverImage || data.cover || (data.imagePaths && data.imagePaths.length > 0 ? data.imagePaths[0] : ''));
+      // Determine cover images for main table: choose the SMALLEST available cover from coverImages
+      // (enrich flow stores largest first, smaller versions later; OpenLibrary pushes L,M,S)
+      // Helper: choose the smallest cover from a list of URLs
+      const chooseSmallestCover = (urls) => {
+        if (!urls || !Array.isArray(urls) || urls.length === 0) return null;
+
+        // Prefer OpenLibrary S.jpg
+        const olS = urls.find(u => u.includes('-S.jpg'));
+        if (olS) return olS;
+
+        // Prefer the smallest zoom for Google Books (zoom=1 etc.)
+        const zoomPairs = urls.map(u => {
+          const m = u.match(/zoom=(\d+)/);
+          return { url: u, zoom: m ? parseInt(m[1], 10) : null };
+        }).filter(p => p.zoom !== null);
+        if (zoomPairs.length > 0) {
+          zoomPairs.sort((a,b) => a.zoom - b.zoom);
+          return zoomPairs[0].url;
+        }
+
+        // Fallback: return last item (often smallest when stored L,M,S)
+        return urls[urls.length - 1] || null;
+      };
+
+      let coverSmall = '';
+      if (data.coverImages && Array.isArray(data.coverImages) && data.coverImages.length > 0) {
+        coverSmall = chooseSmallestCover(data.coverImages) || '';
+      } else if (data.coverImage) {
+        coverSmall = data.coverImage;
+      } else if (data.cover) {
+        coverSmall = data.cover;
+      } else {
+        coverSmall = '';
+      }
 
       // Projection for Slimming Payload
       return {
@@ -191,7 +235,7 @@ export async function getServerSideProps() {
         locationId: data.locationId || '', // Pass through for shelf view
         sourceLabel: sourceLabel,
         description: data.description ? data.description.substring(0, 500) : '',
-        cover: coverUrl,
+        cover: coverSmall,
         sourceUrl: data.sourceUrl || data.source || '',
         sourceFile: (data.sources && Array.isArray(data.sources)) ? data.sources[0] : null // First source file
       };
