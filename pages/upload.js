@@ -1,5 +1,6 @@
 
 import { useState } from 'react';
+import Head from 'next/head';
 import { 
   Container, 
   Typography, 
@@ -62,10 +63,14 @@ export default function UploadPage() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Typography variant="h4" gutterBottom>
-        Upload Photo
-      </Typography>
+    <>
+      <Head>
+        <title>Upload Photos</title>
+      </Head>
+      <Container maxWidth="md" sx={{ py: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          Upload Photos
+        </Typography>
       
       <Paper sx={{ p: 4, textAlign: 'center' }}>
         <input
@@ -127,6 +132,7 @@ export default function UploadPage() {
           </Alert>
         )}
       </Paper>
-    </Container>
+      </Container>
+    </>
   );
 }

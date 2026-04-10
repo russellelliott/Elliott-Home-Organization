@@ -1,5 +1,6 @@
 
 import { useState, useEffect } from 'react';
+import Head from 'next/head';
 import { adminDb } from '../lib/firebase-admin';
 import {
   Container,
@@ -93,6 +94,10 @@ export default function BooksList({ books }) {
 
   return (
     <Container maxWidth="xl" sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+      <Head>
+        <title>My Library</title>
+      </Head>
+
       <Typography variant="h4" gutterBottom>
         My Library
       </Typography>
@@ -103,7 +108,7 @@ export default function BooksList({ books }) {
           columns={columns}
           initialState={{
             pagination: {
-              paginationModel: { pageSize: 25, page: 0 },
+              paginationModel: { pageSize: 10, page: 0 },
             },
           }}
           pageSizeOptions={[10, 25, 50, 100]}

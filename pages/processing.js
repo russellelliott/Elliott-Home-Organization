@@ -292,12 +292,15 @@ export default function ProcessingPage() {
   return (
     <>
       <Head>
-        <title>Elliott Home Organizer</title>
+        <title>Process Location Photos</title>
         <meta name="description" content="Scan bookshelves and get details" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       
       <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+        <Typography variant="h4" gutterBottom>
+          Process Location Photos
+        </Typography>
         <Stack spacing={4}>
           {/* Show location/scan UI only in initial pipeline state */}
           {pipelineStatus === 'initial' && (
