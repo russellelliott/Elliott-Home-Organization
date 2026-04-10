@@ -80,14 +80,18 @@ export default function BooksList({ books }) {
     { field: 'isbn', headerName: 'ISBN', width: 130 },
     { field: 'locationName', headerName: 'Location', width: 150 }, 
     { 
-      field: 'source', 
-      headerName: 'Source', 
-      width: 130,
+      field: 'sources', 
+      headerName: 'Sources', 
+      width: 220,
       renderCell: (params) => (
-        params.row.sourceUrl ? (
-          <Link href={params.row.sourceUrl} target="_blank" rel="noopener noreferrer">
-            {params.row.sourceLabel || "Link"}
-          </Link>
+        Array.isArray(params.row.sources) && params.row.sources.length > 0 ? (
+          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5 }}>
+            {params.row.sources.map((src, idx) => (
+              <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.75rem', lineHeight: 1.3 }}>
+                {src.includes('google') ? 'Google Books' : (src.includes('openlibrary') ? 'Open Library' : `Source ${idx + 1}`)}
+              </Link>
+            ))}
+          </Box>
         ) : null
       )
     },
@@ -177,12 +181,17 @@ export async function getServerSideProps() {
       // Resolve Location
       const locName = data.locationId ? (locationsMap[data.locationId] || data.locationId) : '';
 
-      // Resolve Source Label
-      let sourceLabel = 'Link';
-      if (data.source) {
-        if (data.source.includes('google')) sourceLabel = 'Google Books';
-        else if (data.source.includes('openlibrary')) sourceLabel = 'OpenLibrary';
-      }
+      const urlSources = Array.isArray(data.sources)
+        ? data.sources.filter(v => typeof v === 'string' && /^https?:\/\//i.test(v))
+        : [];
+
+      const normalizedSources = urlSources.length > 0
+        ? urlSources
+        : [data.sourceUrl, data.source].filter(v => typeof v === 'string' && /^https?:\/\//i.test(v));
+
+      const imageSources = Array.isArray(data.imageSources)
+        ? data.imageSources
+        : ((Array.isArray(data.sources) ? data.sources.filter(v => typeof v === 'string' && !/^https?:\/\//i.test(v)) : []));
 
       // Handle Authors string vs array
       const rawAuthors = data.authors || data.author;
@@ -233,11 +242,10 @@ export async function getServerSideProps() {
         isbn: data.isbn || '',
         locationName: locName,
         locationId: data.locationId || '', // Pass through for shelf view
-        sourceLabel: sourceLabel,
+        sources: normalizedSources,
         description: data.description ? data.description.substring(0, 500) : '',
         cover: coverSmall,
-        sourceUrl: data.sourceUrl || data.source || '',
-        sourceFile: (data.sources && Array.isArray(data.sources)) ? data.sources[0] : null // First source file
+        sourceFile: imageSources.length > 0 ? imageSources[0] : null
       };
     });
 

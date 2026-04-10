@@ -172,7 +172,17 @@ export default function ProcessingPage() {
             body: JSON.stringify({ ...book }), // Ensure book object is passed correctly
           });
           const enrichedBook = await res.json();
-          newBooks[i] = enrichedBook;
+          const existingImageSources = Array.isArray(book.imageSources)
+            ? book.imageSources
+            : (Array.isArray(book.sources) ? book.sources : []);
+
+          newBooks[i] = {
+            ...book,
+            ...enrichedBook,
+            imageSources: (Array.isArray(enrichedBook.imageSources) && enrichedBook.imageSources.length > 0)
+              ? enrichedBook.imageSources
+              : existingImageSources
+          };
           setBooks([...newBooks]); 
           setEnrichmentProgress({ current: i + 1, total: books.length });
         } catch (err) {
@@ -232,7 +242,7 @@ export default function ProcessingPage() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 folder: selectedFolder,
-                sources: editingBook.sources,
+            sources: editingBook.imageSources || editingBook.sources,
                 currentTitle: editingBook.title,
                 currentAuthor: editingBook.author,
                 feedbackType,
@@ -447,7 +457,7 @@ export default function ProcessingPage() {
                               {Array.isArray(book.authors) ? book.authors.join(', ') : (book.authors || book.author)}
                           </TableCell>
                           <TableCell sx={{ color: 'text.secondary' }}>
-                            {book.sources ? (Array.isArray(book.sources) ? book.sources.map(s => s.split('/').pop()).join(', ') : book.sources) : '-'}
+                            {book.imageSources ? (Array.isArray(book.imageSources) ? book.imageSources.map(s => s.split('/').pop()).join(', ') : book.imageSources) : '-'}
                           </TableCell>
 
                           {(pipelineStatus === 'enrichment' || pipelineStatus === 'complete') && (
@@ -459,11 +469,25 @@ export default function ProcessingPage() {
                                 <TableCell>{book.publicationDate}</TableCell>
                                 <TableCell>{book.isbn}</TableCell>
                                 <TableCell>
-                                    {book.sourceUrl && (
-                                        <Typography component="a" href={book.sourceUrl} target="_blank" rel="noopener noreferrer" variant="caption">
-                                            {book.source || 'Link'}
-                                        </Typography>
-                                    )}
+                                    {Array.isArray(book.sources) && book.sources.length > 0
+                                      ? book.sources.map((src, idx) => (
+                                          <Typography
+                                            key={`${src}-${idx}`}
+                                            component="a"
+                                            href={src}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            variant="caption"
+                                            sx={{ display: 'block' }}
+                                          >
+                                            {src}
+                                          </Typography>
+                                        ))
+                                      : (book.sourceUrl && (
+                                          <Typography component="a" href={book.sourceUrl} target="_blank" rel="noopener noreferrer" variant="caption">
+                                              {book.source || book.sourceUrl}
+                                          </Typography>
+                                        ))}
                                 </TableCell>
                                 <TableCell sx={{ maxWidth: 300, fontSize: '0.75rem' }}>
                                     {book.description}
@@ -600,7 +624,13 @@ export default function ProcessingPage() {
                     onChange={(e) => setManualEditingBook({...manualEditingBook, description: e.target.value})}
                     fullWidth
                  />
-                 {manualEditingBook?.sourceUrl && (
+                 {(Array.isArray(manualEditingBook?.sources) && manualEditingBook.sources.length > 0) ? (
+                   <Typography variant="caption">
+                     {manualEditingBook.sources.map((src, idx) => (
+                       <a key={`${src}-${idx}`} href={src} target="_blank" rel="noreferrer" style={{ display: 'block' }}>{src}</a>
+                     ))}
+                   </Typography>
+                 ) : manualEditingBook?.sourceUrl && (
                      <Typography variant="caption">
                          <a href={manualEditingBook.sourceUrl} target="_blank" rel="noreferrer">Reference: {manualEditingBook.source || 'Link'}</a>
                      </Typography>

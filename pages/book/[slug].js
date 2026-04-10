@@ -135,8 +135,12 @@ export default function BookPage({ book, locationName }) {
               <Typography>{book.publisher || '—'}</Typography>
 
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2 }}>Source</Typography>
-              {book.sourceUrl ? (
-                <Link href={book.sourceUrl} target="_blank" rel="noopener noreferrer">{book.sourceUrl}</Link>
+              {Array.isArray(book.sources) && book.sources.length > 0 ? (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  {book.sources.map((src, idx) => (
+                    <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer">{src}</Link>
+                  ))}
+                </Box>
               ) : (
                 <Typography>—</Typography>
               )}
@@ -177,19 +181,27 @@ export async function getServerSideProps(context) {
     }
 
     // Ensure arrays and strings are serializable
+    const urlSources = Array.isArray(data.sources)
+      ? data.sources.filter(v => typeof v === 'string' && /^https?:\/\//i.test(v))
+      : [];
+
+    const normalizedSources = urlSources.length > 0
+      ? urlSources
+      : [data.sourceUrl, data.source].filter(v => typeof v === 'string' && /^https?:\/\//i.test(v));
+
     const book = {
       id: doc.id,
       title: data.title || '',
       authors: Array.isArray(data.authors) ? data.authors.join(', ') : (data.authors || data.author || ''),
       publisher: data.publisher || '',
-      publishedDate: data.publishedDate || '',
+      publishedDate: data.publishedDate || data.publicationDate || '',
       isbn: data.isbn || '',
       pageCount: data.pageCount || null,
       description: data.description || '',
       coverImages: Array.isArray(data.coverImages) ? data.coverImages : (data.coverImage ? [data.coverImage] : []),
       coverImage: data.coverImage || data.cover || null,
       imagePaths: Array.isArray(data.imagePaths) ? data.imagePaths : [],
-      sourceUrl: data.sourceUrl || data.source || '',
+      sources: normalizedSources,
       locationId: data.locationId || ''
     };
 

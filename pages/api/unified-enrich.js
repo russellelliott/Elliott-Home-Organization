@@ -1,5 +1,55 @@
 import OpenAI from "openai";
 
+function toCleanArray(values) {
+    if (!Array.isArray(values)) return [];
+    return values.map(v => (typeof v === 'string' ? v.trim() : '')).filter(Boolean);
+}
+
+function firstNonEmpty(...values) {
+    for (const value of values) {
+        if (typeof value === 'string' && value.trim()) return value.trim();
+    }
+    return null;
+}
+
+function mergeUniqueStrings(...lists) {
+    const out = [];
+    const seen = new Set();
+    for (const list of lists) {
+        for (const item of toCleanArray(list)) {
+            if (!seen.has(item)) {
+                seen.add(item);
+                out.push(item);
+            }
+        }
+    }
+    return out;
+}
+
+function isMissingField(data, fieldName) {
+    if (!data) return true;
+
+    if (fieldName === 'authors') {
+        return !Array.isArray(data.authors) || data.authors.length === 0;
+    }
+    if (fieldName === 'coverUrls') {
+        return !Array.isArray(data.coverUrls) || data.coverUrls.length === 0;
+    }
+    if (fieldName === 'pageCount') {
+        return typeof data.pageCount !== 'number' || data.pageCount <= 0;
+    }
+
+    const value = data[fieldName];
+    return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
+}
+
+const BACKFILL_FIELDS = ['coverUrls', 'isbn', 'publisher', 'publicationDate', 'authors', 'pageCount', 'description'];
+
+function needsOpenLibraryBackfill(googleData) {
+    if (!googleData) return true;
+    return BACKFILL_FIELDS.some(field => isMissingField(googleData, field));
+}
+
 function cleanTitle(title) {
     if (!title) return title;
     let cleaned = title;
@@ -118,17 +168,55 @@ async function fetchGoogleBooksData(title, author) {
                       book.industryIdentifiers?.find(id => id.type === "ISBN_10")?.identifier,
                 coverUrls: coverUrls,
                 pageCount: book.pageCount || null,
-                infoLink: book.infoLink
+                infoLink: book.infoLink || book.canonicalVolumeLink || null
             };
         }
-        return null; // Could try OpenLibrary here as fallback if needed, keeping it simple for now as per prompt "Google Books/OpenLibrary"
+        return null;
     } catch (e) {
         console.error("Google Books enrich error:", e);
         return null;
     }
 }
 
-// Fallback to OpenLibrary if Google Books fails
+async function fetchOpenLibraryByISBN(isbn) {
+    if (!isbn) return null;
+    try {
+        const url = `https://openlibrary.org/search.json?isbn=${encodeURIComponent(isbn)}&limit=1`;
+        const res = await fetch(url, {
+            headers: { 'User-Agent': 'ElliottHomeOrg/1.0 (contact: russ.elliott001@gmail.com)' }
+        });
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (!data.docs || data.docs.length === 0) return null;
+        const doc = data.docs[0];
+
+        const coverUrls = [];
+        if (doc.cover_i) {
+            coverUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-L.jpg`);
+            coverUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-M.jpg`);
+            coverUrls.push(`https://covers.openlibrary.org/b/id/${doc.cover_i}-S.jpg`);
+        }
+
+        return {
+            source: 'Open Library',
+            title: doc.title || null,
+            authors: doc.author_name || [],
+            publisher: doc.publisher ? doc.publisher[0] : null,
+            publicationDate: doc.first_publish_year ? String(doc.first_publish_year) : null,
+            isbn: doc.isbn ? (doc.isbn.find(v => v && v.length === 13) || doc.isbn[0]) : null,
+            coverUrls,
+            pageCount: doc.number_of_pages || doc.number_of_pages_median || null,
+            description: null,
+            infoLink: doc.key ? `https://openlibrary.org${doc.key}` : null,
+            sourceUrl: doc.key ? `https://openlibrary.org${doc.key}` : null
+        };
+    } catch (e) {
+        console.error("OpenLibrary ISBN enrich error:", e);
+        return null;
+    }
+}
+
+// OpenLibrary lookup by title + author
 async function fetchOpenLibraryData(title, author) {
      // Simplified OpenLibrary implementation
      try {
@@ -137,11 +225,9 @@ async function fetchOpenLibraryData(title, author) {
             olQuery += `&author=${encodeURIComponent(author)}`;
         }
         const url = `https://openlibrary.org/search.json?${olQuery}&limit=1`;
-        const res = await fetch(url, {
-             headers: {
-                 'User-Agent': 'ElliottHomeOrg/1.0 (contact: russ.elliott001@gmail.com)'
-             }
-        });
+           const res = await fetch(url, {
+               headers: { 'User-Agent': 'ElliottHomeOrg/1.0 (contact: russ.elliott001@gmail.com)' }
+           });
         const data = await res.json();
         
         if (data.docs && data.docs.length > 0) {
@@ -162,7 +248,7 @@ async function fetchOpenLibraryData(title, author) {
                 publicationDate: doc.first_publish_year ? String(doc.first_publish_year) : null,
                 isbn: doc.isbn ? doc.isbn[0] : null,
                 coverUrls: coverUrls,
-                pageCount: doc.number_of_pages || null,
+                pageCount: doc.number_of_pages || doc.number_of_pages_median || null,
                 infoLink: `https://openlibrary.org${doc.key}`,
                 sourceUrl: `https://openlibrary.org${doc.key}`
             };
@@ -234,61 +320,75 @@ export default async function handler(req, res) {
         return res.status(405).json({ message: 'Method not allowed' });
     }
 
-    const { title, author } = req.body; // These are "Detected Title/Author"
+    const { title, author } = req.body;
 
     if (!title) {
         return res.status(400).json({ message: 'Title is required' });
     }
 
-    // Parallel execution for speed? The prompt implies priority order, but data availability is key.
-    // Waterfall: Google/OpenLib overrides Perplexity.
-    // So we need both.
-    
     const [perplexityData, googleData] = await Promise.all([
         fetchPerplexityData(title, author),
         fetchGoogleBooksData(title, author)
     ]);
 
-    let externalData = googleData;
-    if (!externalData) {
-        externalData = await fetchOpenLibraryData(title, author);
-        
-        // Retry OL with cleaned title if missing
-        if (!externalData) {
-            const cleaned = cleanTitle(title);
-            if (cleaned !== title) {
-                externalData = await fetchOpenLibraryData(cleaned, author);
-            }
+    let openLibraryData = null;
+    const shouldQueryOpenLibrary = needsOpenLibraryBackfill(googleData);
+
+    if (shouldQueryOpenLibrary) {
+        const isbnToUse = firstNonEmpty(googleData?.isbn, perplexityData?.isbn);
+        if (isbnToUse) {
+            openLibraryData = await fetchOpenLibraryByISBN(isbnToUse);
         }
-        
-        // Retry OL with just title if author mismatch
-        if (!externalData && author) {
-             externalData = await fetchOpenLibraryData(title, null);
+
+        if (!openLibraryData) {
+            const cleaned = cleanTitle(title);
+            openLibraryData = await fetchOpenLibraryData(cleaned || title, author);
+        }
+
+        if (!openLibraryData && author) {
+            openLibraryData = await fetchOpenLibraryData(title, null);
         }
     }
 
-    // Construct unified object
-    // Priority: External (Google/OL) > Perplexity > Gemini (input title/author)
-    
+    const mergedExternal = {
+        title: firstNonEmpty(googleData?.title, openLibraryData?.title),
+        coverUrls: (googleData?.coverUrls && googleData.coverUrls.length > 0)
+            ? googleData.coverUrls
+            : (openLibraryData?.coverUrls || []),
+        pageCount: (googleData?.pageCount && googleData.pageCount > 0)
+            ? googleData.pageCount
+            : (openLibraryData?.pageCount || null),
+        isbn: firstNonEmpty(googleData?.isbn, openLibraryData?.isbn),
+        publisher: firstNonEmpty(googleData?.publisher, openLibraryData?.publisher),
+        publicationDate: firstNonEmpty(googleData?.publicationDate, openLibraryData?.publicationDate),
+        description: firstNonEmpty(googleData?.description, openLibraryData?.description),
+        authors: mergeUniqueStrings(googleData?.authors || [], openLibraryData?.authors || [])
+    };
+
+    const sources = mergeUniqueStrings(
+        googleData?.infoLink ? [googleData.infoLink] : [],
+        openLibraryData?.infoLink ? [openLibraryData.infoLink] : []
+    );
+
     const finalData = {
-        title: externalData?.title || perplexityData?.title || title, // Usually we trust external title
-        // Authors logic later
-        
-        imageSource: null, // This comes from client, not enriching
-        source: externalData?.source || 'Perplexity',
-        sourceUrl: externalData?.infoLink || null,
-        coverUrls: externalData?.coverUrls || null,
-        pageCount: externalData?.pageCount || perplexityData?.pageCount || null,
-        coverImage: (externalData?.coverUrls && externalData.coverUrls.length > 0) ? externalData.coverUrls[0] : null,
-        isbn: externalData?.isbn || perplexityData?.isbn || null,
-        publisher: externalData?.publisher || perplexityData?.publisher || null,
-        publicationDate: externalData?.publicationDate || perplexityData?.publicationDate || null,
-        description: externalData?.description || perplexityData?.description || null,
+        title: mergedExternal.title || perplexityData?.title || title,
+        imageSources: Array.isArray(req.body.imageSources)
+            ? req.body.imageSources
+            : (Array.isArray(req.body.sources) ? req.body.sources : []),
+        sources,
+        coverUrls: mergedExternal.coverUrls.length > 0 ? mergedExternal.coverUrls : null,
+        pageCount: mergedExternal.pageCount || perplexityData?.pageCount || null,
+        coverImage: mergedExternal.coverUrls.length > 0 ? (mergedExternal.coverUrls[0] || null) : null,
+        isbn: firstNonEmpty(mergedExternal.isbn, perplexityData?.isbn),
+        publisher: firstNonEmpty(mergedExternal.publisher, perplexityData?.publisher),
+        publicationDate: firstNonEmpty(mergedExternal.publicationDate, perplexityData?.publicationDate),
+        publishedDate: firstNonEmpty(mergedExternal.publicationDate, perplexityData?.publicationDate),
+        description: firstNonEmpty(mergedExternal.description, perplexityData?.description),
     };
 
     // Merging Authors
     const pAuthors = perplexityData?.authors || (perplexityData?.author ? [perplexityData.author] : []);
-    const gAuthors = externalData?.authors || (externalData?.author ? [externalData.author] : []);
+    const gAuthors = mergedExternal.authors;
     
     // Perplexity might return authors even if it found nothing else?
     // The prompt says: "If any Google Books/OpenLibrary field is empty, retain the value from Perplexity"
@@ -301,7 +401,7 @@ export default async function handler(req, res) {
     // Actually, Perplexity overrides Gemini. Google overrides Perplexity.
     
     let combinedAuthors = [];
-    if (externalData) {
+    if (gAuthors.length > 0) {
         combinedAuthors = await mergeAuthorsFuzzy(gAuthors, pAuthors);
     } else if (perplexityData) {
         combinedAuthors = await mergeAuthorsFuzzy(pAuthors, []);
@@ -310,6 +410,7 @@ export default async function handler(req, res) {
     }
 
     finalData.authors = combinedAuthors;
+    finalData.coverImages = finalData.coverUrls || [];
     
     res.status(200).json(finalData);
 }

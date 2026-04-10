@@ -92,9 +92,9 @@ export default async function handler(req, res) {
     try {
         for (const book of books) {
             // Construct absolute path
-            // book.location usually matches the folder name
-            // book.imageSource is filename
-            const imagePath = path.join(baseDir, book.location, book.imageSource);
+            const imageSource = book.imageSource || (Array.isArray(book.imageSources) ? book.imageSources[0] : null);
+            const imageFolder = book.location || folder;
+            const imagePath = path.join(baseDir, imageFolder, imageSource || '');
 
             const fileData = await getFileHash(imagePath);
             if (!fileData) {
@@ -118,6 +118,10 @@ export default async function handler(req, res) {
                 // Create Book Document
                 await addDoc(collection(db, 'books'), {
                     ...book,
+                                        imageSource: imageSource || null,
+                                        imageSources: Array.isArray(book.imageSources)
+                                            ? book.imageSources
+                                            : (imageSource ? [imageSource] : []),
                     imagePath: downloadURL,
                     fileHash: hash,
                     locationId: locationId,
