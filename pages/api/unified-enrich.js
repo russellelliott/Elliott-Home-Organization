@@ -117,6 +117,7 @@ async function fetchGoogleBooksData(title, author) {
                 isbn: book.industryIdentifiers?.find(id => id.type === "ISBN_13")?.identifier || 
                       book.industryIdentifiers?.find(id => id.type === "ISBN_10")?.identifier,
                 coverUrls: coverUrls,
+                pageCount: book.pageCount || null,
                 infoLink: book.infoLink
             };
         }
@@ -138,7 +139,7 @@ async function fetchOpenLibraryData(title, author) {
         const url = `https://openlibrary.org/search.json?${olQuery}&limit=1`;
         const res = await fetch(url, {
              headers: {
-                 'User-Agent': 'Elliott-Home-Organization/1.0 (russ.elliott001@gmail.com)'
+                 'User-Agent': 'ElliottHomeOrg/1.0 (contact: russ.elliott001@gmail.com)'
              }
         });
         const data = await res.json();
@@ -161,6 +162,7 @@ async function fetchOpenLibraryData(title, author) {
                 publicationDate: doc.first_publish_year ? String(doc.first_publish_year) : null,
                 isbn: doc.isbn ? doc.isbn[0] : null,
                 coverUrls: coverUrls,
+                pageCount: doc.number_of_pages || null,
                 infoLink: `https://openlibrary.org${doc.key}`,
                 sourceUrl: `https://openlibrary.org${doc.key}`
             };
@@ -275,7 +277,9 @@ export default async function handler(req, res) {
         imageSource: null, // This comes from client, not enriching
         source: externalData?.source || 'Perplexity',
         sourceUrl: externalData?.infoLink || null,
-        coverImage: externalData?.coverUrl || null,
+        coverUrls: externalData?.coverUrls || null,
+        pageCount: externalData?.pageCount || perplexityData?.pageCount || null,
+        coverImage: (externalData?.coverUrls && externalData.coverUrls.length > 0) ? externalData.coverUrls[0] : null,
         isbn: externalData?.isbn || perplexityData?.isbn || null,
         publisher: externalData?.publisher || perplexityData?.publisher || null,
         publicationDate: externalData?.publicationDate || perplexityData?.publicationDate || null,
