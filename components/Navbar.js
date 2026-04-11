@@ -34,6 +34,8 @@ export default function Navbar() {
             <Button color="inherit" onClick={() => router.push('/')}>Books</Button>
             <Button color="inherit" onClick={() => router.push('/upload')}>Upload</Button>
             <Button color="inherit" onClick={() => router.push('/processing')}>Processing</Button>
+          <Button color="inherit" onClick={() => router.push('/enrich-books')}>Enrich Existing Books</Button>
+          <Button color="inherit" onClick={() => router.push('/normalize-authors')}>Normalize Authors</Button>
         </Box>
 
         <Box display="flex" alignItems="center" gap={2}>
