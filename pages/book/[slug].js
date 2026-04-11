@@ -109,7 +109,16 @@ export default function BookPage({ book, locationName }) {
 
           {/* Overlay: primary book cover */}
           {(
-            <Box sx={{ position: 'absolute', left: { xs: 16, md: 40 }, bottom: -64, width: { xs: 120, md: 180 }, boxShadow: 3 }}>
+            <Box
+              sx={{
+                position: 'absolute',
+                left: { xs: 16, md: 40 },
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: { xs: 120, md: 180 },
+                boxShadow: 3
+              }}
+            >
               <CoverImg src={coverLarge} title={book.title} authors={book.authors} sx={{ height: { xs: 160, md: 240 } }} />
             </Box>
           )}
