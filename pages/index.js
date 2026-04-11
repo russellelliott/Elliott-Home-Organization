@@ -64,24 +64,24 @@ export default function BooksList({ books }) {
     { field: 'publisher', headerName: 'Publisher', flex: 0.8, minWidth: 110 },
     { field: 'publishedDate', headerName: 'Published', width: 96 },
     { field: 'isbn', headerName: 'ISBN', width: 118 },
-    { field: 'locationName', headerName: 'Location', width: 120 }, 
+    { field: 'locationName', headerName: 'Location', width: 120 },
+    { field: 'description', headerName: 'Description', flex: 2.1, minWidth: 260 },
     { 
       field: 'sources', 
       headerName: 'Sources', 
-      width: 112,
+      width: 96,
       renderCell: (params) => (
         Array.isArray(params.row.sources) && params.row.sources.length > 0 ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5, gap: 0.25 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
             {params.row.sources.map((src, idx) => (
-              <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.72rem', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
-                {src.includes('google') ? 'Google' : (src.includes('openlibrary') ? 'OpenLib' : `Src ${idx + 1}`)}
+              <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+                [{idx + 1}]
               </Link>
             ))}
           </Box>
         ) : null
       )
     },
-    { field: 'description', headerName: 'Description', flex: 2.1, minWidth: 260 },
   ];
 
   return (

@@ -82,33 +82,33 @@ export default function BookPage({ book, locationName }) {
       </Head>
 
       <Paper sx={{ overflow: 'hidden' }}>
-        {/* Hero Section */}
-        <Box sx={{ position: 'relative', height: { xs: 320, md: 420 }, background: '#000' }}>
-          {currentHero && (
-            <Box component="img" src={currentHero} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-          )}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+          {/* Hero Section */}
+          <Box sx={{ position: 'relative', width: { xs: '100%', md: '52%' }, height: { xs: 320, md: 520 }, background: '#000' }}>
+            {currentHero && (
+              <Box component="img" src={currentHero} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            )}
 
-          {/* Dots for multi-photo toggle */}
-          {heroImages.length > 1 && (
-            <Box sx={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
-              {heroImages.map((_, i) => (
-                <Box
-                  key={i}
-                  onClick={() => setIdx(i)}
-                  sx={{
-                    width: 10,
-                    height: 10,
-                    borderRadius: '50%',
-                    bgcolor: i === idx ? 'primary.main' : 'rgba(255,255,255,0.6)',
-                    cursor: 'pointer'
-                  }}
-                />
-              ))}
-            </Box>
-          )}
+            {/* Dots for multi-photo toggle */}
+            {heroImages.length > 1 && (
+              <Box sx={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
+                {heroImages.map((_, i) => (
+                  <Box
+                    key={i}
+                    onClick={() => setIdx(i)}
+                    sx={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      bgcolor: i === idx ? 'primary.main' : 'rgba(255,255,255,0.6)',
+                      cursor: 'pointer'
+                    }}
+                  />
+                ))}
+              </Box>
+            )}
 
-          {/* Overlay: primary book cover */}
-          {(
+            {/* Overlay: primary book cover */}
             <Box
               sx={{
                 position: 'absolute',
@@ -121,46 +121,53 @@ export default function BookPage({ book, locationName }) {
             >
               <CoverImg src={coverLarge} title={book.title} authors={book.authors} sx={{ height: { xs: 160, md: 240 } }} />
             </Box>
-          )}
-        </Box>
+          </Box>
 
-        {/* Information Grid: left column fixed width, right column flexible */}
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, p: 4 }}>
-          <Box sx={{ width: { xs: '100%', md: 300 }, flexShrink: 0 }}>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {/* Metadata and description beside hero */}
+          <Box sx={{ width: { xs: '100%', md: '48%' }, p: { xs: 3, md: 4 } }}>
+            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{book.title}</Typography>
+            <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 2 }}>{book.authors}</Typography>
+
+            <Box
+              sx={{
+                display: 'grid',
+                gridTemplateColumns: 'auto minmax(0, 1fr)',
+                columnGap: 2,
+                rowGap: 1,
+                alignItems: 'start',
+                mb: 3
+              }}
+            >
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>ISBN</Typography>
               <Typography>{book.isbn || '—'}</Typography>
 
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2 }}>Location</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Location</Typography>
               <Typography>{locationName || book.locationId || '—'}</Typography>
 
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2 }}>Page Count</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Page Count</Typography>
               <Typography>{book.pageCount || '—'}</Typography>
 
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2 }}>Published</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Published</Typography>
               <Typography>{book.publishedDate || '—'}</Typography>
 
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2 }}>Publisher</Typography>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Publisher</Typography>
               <Typography>{book.publisher || '—'}</Typography>
+            </Box>
 
-              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mt: 2 }}>Source</Typography>
+            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2.5 }}>{book.description || 'No description available.'}</Typography>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>Sources:</Typography>
               {Array.isArray(book.sources) && book.sources.length > 0 ? (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   {book.sources.map((src, idx) => (
-                    <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer">{src}</Link>
+                    <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer">[{idx + 1}]</Link>
                   ))}
                 </Box>
               ) : (
                 <Typography>—</Typography>
               )}
             </Box>
-          </Box>
-
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{book.title}</Typography>
-            <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 2 }}>{book.authors}</Typography>
-
-            <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>{book.description || 'No description available.'}</Typography>
           </Box>
         </Box>
       </Paper>
