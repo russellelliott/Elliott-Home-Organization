@@ -8,15 +8,9 @@ import {
   Typography,
   Paper,
   Box,
-  TextField,
-  InputAdornment,
-  TablePagination,
   Link,
-  Button,
-  Dialog,
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
-import SearchIcon from '@mui/icons-material/Search';
 
 const BookCover = ({ url }) => {
   const [src, setSrc] = useState(url);
@@ -53,57 +47,41 @@ const BookCover = ({ url }) => {
 };
 
 export default function BooksList({ books }) {
-  const [viewShelfOpen, setViewShelfOpen] = useState(false);
-  const [shelfImageInfo, setShelfImageInfo] = useState(null);
   const router = useRouter();
-
-  const handleViewShelf = (row) => {
-      // Use locationId as the folder name, assuming it maps to directory structure
-      setShelfImageInfo({ folder: row.locationId, file: row.sourceFile });
-      setViewShelfOpen(true);
-  };
   
   const columns = [
     {
       field: 'cover',
       headerName: 'Cover',
-      width: 70,
+      width: 56,
       renderCell: (params) => {
         // `cover` contains the smallest available cover URL for the table
         return <BookCover url={params.value || ''} />;
       }
     },
-    { field: 'title', headerName: 'Title', flex: 1, minWidth: 200 },
-    { field: 'authors', headerName: 'Author(s)', flex: 0.8, minWidth: 150 },
-    { field: 'publisher', headerName: 'Publisher', flex: 0.6, minWidth: 120 },
-    { field: 'publishedDate', headerName: 'Published', width: 100 },
-    { field: 'isbn', headerName: 'ISBN', width: 130 },
-    { field: 'locationName', headerName: 'Location', width: 150 }, 
+    { field: 'title', headerName: 'Title', flex: 1.1, minWidth: 150 },
+    { field: 'authors', headerName: 'Author(s)', flex: 0.9, minWidth: 130 },
+    { field: 'publisher', headerName: 'Publisher', flex: 0.8, minWidth: 110 },
+    { field: 'publishedDate', headerName: 'Published', width: 96 },
+    { field: 'isbn', headerName: 'ISBN', width: 118 },
+    { field: 'locationName', headerName: 'Location', width: 120 }, 
     { 
       field: 'sources', 
       headerName: 'Sources', 
-      width: 220,
+      width: 112,
       renderCell: (params) => (
         Array.isArray(params.row.sources) && params.row.sources.length > 0 ? (
-          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', py: 0.5, gap: 0.25 }}>
             {params.row.sources.map((src, idx) => (
-              <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.75rem', lineHeight: 1.3 }}>
-                {src.includes('google') ? 'Google Books' : (src.includes('openlibrary') ? 'Open Library' : `Source ${idx + 1}`)}
+              <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.72rem', lineHeight: 1.2, whiteSpace: 'nowrap' }}>
+                {src.includes('google') ? 'Google' : (src.includes('openlibrary') ? 'OpenLib' : `Src ${idx + 1}`)}
               </Link>
             ))}
           </Box>
         ) : null
       )
     },
-    {
-         field: 'actions', headerName: 'Shelf View', width: 110,
-         renderCell: (params) => (
-             params.row.sourceFile ? 
-             <Button size="small" variant="text" onClick={() => handleViewShelf(params.row)}>View Shelf</Button>
-             : null
-         )
-    },
-    { field: 'description', headerName: 'Description', flex: 1.5, minWidth: 250 },
+    { field: 'description', headerName: 'Description', flex: 2.1, minWidth: 260 },
   ];
 
   return (
@@ -137,18 +115,15 @@ export default function BooksList({ books }) {
             // Navigate to individual book page using the document id as slug
             router.push(`/book/${params.id}`);
           }}
-          sx={{ border: 0 }}
+          sx={{
+            border: 0,
+            width: '100%',
+            '& .MuiDataGrid-virtualScroller': {
+              overflowX: 'hidden !important'
+            }
+          }}
         />
       </Paper>
-
-      <Dialog open={viewShelfOpen} onClose={() => setViewShelfOpen(false)} maxWidth="lg">
-         {shelfImageInfo && (
-             <Box component="img" 
-                  src={`/api/local-shelf-image?folder=${encodeURIComponent(shelfImageInfo.folder)}&file=${encodeURIComponent(shelfImageInfo.file)}`}
-                  sx={{ width: '100%', height: 'auto', maxHeight: '90vh', objectFit: 'contain' }} 
-             />
-         )}
-      </Dialog>
     </Container>
   );
 }
@@ -174,9 +149,6 @@ export async function getServerSideProps() {
 
     const books = querySnapshot.docs.map(doc => {
       const data = doc.data();
-      
-      // Serialize helper for Firestore timestamps if any
-      const serialize = (obj) => JSON.parse(JSON.stringify(obj));
       
       // Resolve Location
       const locName = data.locationId ? (locationsMap[data.locationId] || data.locationId) : '';
@@ -241,11 +213,10 @@ export async function getServerSideProps() {
         publishedDate: data.publishedDate || '',
         isbn: data.isbn || '',
         locationName: locName,
-        locationId: data.locationId || '', // Pass through for shelf view
+        locationId: data.locationId || '',
         sources: normalizedSources,
         description: data.description ? data.description.substring(0, 500) : '',
-        cover: coverSmall,
-        sourceFile: imageSources.length > 0 ? imageSources[0] : null
+        cover: coverSmall
       };
     });
 
