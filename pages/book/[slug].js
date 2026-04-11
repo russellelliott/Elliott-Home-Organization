@@ -7,8 +7,8 @@ const CoverImg = ({ src, title, authors, sx }) => {
   // Placeholder when no src: dark-blue rectangle with title centered and author at bottom
   if (!src) {
     return (
-      <Box sx={{ width: '100%', height: '100%', bgcolor: '#0b3d91', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', p: 2, ...sx }}>
-        <Typography variant="subtitle1" sx={{ textAlign: 'center', fontWeight: 'bold' }}>{title || 'Untitled'}</Typography>
+      <Box sx={{ width: '100%', height: '100%', bgcolor: '#0b3d91', color: '#fff', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', position: 'relative', pt: 1, px: 1.5, pb: 2, ...sx }}>
+        <Typography variant="subtitle2" sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: { xs: '0.78rem', md: '0.88rem' }, lineHeight: 1.2 }}>{title || 'Untitled'}</Typography>
         {authors ? <Typography variant="caption" sx={{ position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', textAlign: 'center' }}>{authors}</Typography> : null}
       </Box>
     );

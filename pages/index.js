@@ -30,7 +30,7 @@ const BookCover = ({ url }) => {
     // Placeholder small cover when no src available
     return (
       <Box sx={{ width: '100%', height: '100%', bgcolor: '#0b3d91', color: '#fff', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', px: 1 }}>
-        <Box sx={{ fontSize: 11, textAlign: 'center' }}>No cover</Box>
+        <Box sx={{ fontSize: 24, fontWeight: 700, lineHeight: 1, textAlign: 'center' }}>?</Box>
       </Box>
     );
   }
