@@ -59,13 +59,65 @@ export default function BooksList({ books }) {
         return <BookCover url={params.value || ''} />;
       }
     },
-    { field: 'title', headerName: 'Title', flex: 1.1, minWidth: 150 },
-    { field: 'authors', headerName: 'Author(s)', flex: 0.9, minWidth: 130 },
+    {
+      field: 'title',
+      headerName: 'Title',
+      flex: 1.1,
+      minWidth: 150,
+      cellClassName: 'wrap-cell',
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
+          {params.value}
+        </Box>
+      )
+    },
+    {
+      field: 'authors',
+      headerName: 'Author(s)',
+      flex: 0.9,
+      minWidth: 130,
+      cellClassName: 'wrap-cell',
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
+          {params.value}
+        </Box>
+      )
+    },
     { field: 'publisher', headerName: 'Publisher', flex: 0.8, minWidth: 110 },
     { field: 'publishedDate', headerName: 'Published', width: 96 },
-    { field: 'isbn', headerName: 'ISBN', width: 118 },
-    { field: 'locationName', headerName: 'Location', width: 120 },
-    { field: 'description', headerName: 'Description', flex: 2.1, minWidth: 260 },
+    { field: 'isbn', headerName: 'ISBN', width: 152 },
+    {
+      field: 'locationName',
+      headerName: 'Location',
+      width: 175,
+      cellClassName: 'wrap-cell',
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
+          {params.value}
+        </Box>
+      )
+    },
+    {
+      field: 'description',
+      headerName: 'Description',
+      flex: 2.1,
+      minWidth: 260,
+      renderCell: (params) => (
+        <Box
+          title={params.value || ''}
+          sx={{
+            width: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+            lineHeight: 1.25,
+            py: 0.5
+          }}
+        >
+          {params.value}
+        </Box>
+      )
+    },
     { 
       field: 'sources', 
       headerName: 'Sources', 
@@ -98,6 +150,7 @@ export default function BooksList({ books }) {
         <DataGrid
           rows={books}
           columns={columns}
+          getRowHeight={() => 'auto'}
           initialState={{
             pagination: {
               paginationModel: { pageSize: 10, page: 0 },
@@ -118,6 +171,16 @@ export default function BooksList({ books }) {
           sx={{
             border: 0,
             width: '100%',
+            fontSize: '0.82rem',
+            '& .MuiDataGrid-columnHeaders': {
+              fontSize: '0.78rem'
+            },
+            '& .MuiDataGrid-cell': {
+              fontSize: '0.82rem'
+            },
+            '& .wrap-cell': {
+              alignItems: 'flex-start'
+            },
             '& .MuiDataGrid-virtualScroller': {
               overflowX: 'hidden !important'
             }

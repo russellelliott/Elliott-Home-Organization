@@ -1,11 +1,35 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import { adminDb } from '../../lib/firebase-admin';
 import { Container, Box, Typography, Paper, Link } from '@mui/material';
 
-const CoverImg = ({ src, title, authors, sx }) => {
+const CoverImg = ({ src, candidates = [], title, authors, sx }) => {
+  const normalizedCandidates = useMemo(() => {
+    const base = [];
+    if (src) base.push(src);
+    if (Array.isArray(candidates)) base.push(...candidates);
+    return [...new Set(base.filter(Boolean))];
+  }, [src, candidates]);
+
+  const candidateSignature = useMemo(
+    () => normalizedCandidates.join('|'),
+    [normalizedCandidates]
+  );
+
+  const [candidateIdx, setCandidateIdx] = useState(0);
+
+  useEffect(() => {
+    setCandidateIdx(0);
+  }, [candidateSignature]);
+
+  const currentSrc = normalizedCandidates[candidateIdx] || null;
+
+  const useNextCandidate = () => {
+    setCandidateIdx((prev) => (prev < normalizedCandidates.length - 1 ? prev + 1 : prev));
+  };
+
   // Placeholder when no src: dark-blue rectangle with title centered and author at bottom
-  if (!src) {
+  if (!currentSrc) {
     return (
       <Box sx={{ width: '100%', height: '100%', bgcolor: '#0b3d91', color: '#fff', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', position: 'relative', pt: 1, px: 1.5, pb: 2, ...sx }}>
         <Typography variant="subtitle2" sx={{ textAlign: 'center', fontWeight: 'bold', fontSize: { xs: '0.78rem', md: '0.88rem' }, lineHeight: 1.2 }}>{title || 'Untitled'}</Typography>
@@ -17,8 +41,23 @@ const CoverImg = ({ src, title, authors, sx }) => {
   return (
     <Box
       component="img"
-      src={src}
+      src={currentSrc}
       alt={title || 'cover'}
+      onError={useNextCandidate}
+      onLoad={(e) => {
+        const img = e.currentTarget;
+        const w = img.naturalWidth || 0;
+        const h = img.naturalHeight || 0;
+        if (!w || !h) return;
+
+        // Typical portrait book covers are roughly 0.5-0.8 width/height.
+        // If not portrait-like, try a smaller candidate (often a better-cropped zoom).
+        const ratio = w / h;
+        const looksLikeBookCover = ratio >= 0.42 && ratio <= 0.9;
+        if (!looksLikeBookCover) {
+          useNextCandidate();
+        }
+      }}
       sx={{ width: '100%', height: '100%', objectFit: 'contain', ...sx }}
     />
   );
@@ -26,6 +65,7 @@ const CoverImg = ({ src, title, authors, sx }) => {
 
 export default function BookPage({ book, locationName }) {
   const [idx, setIdx] = useState(0);
+  const [heroSrc, setHeroSrc] = useState('');
 
   if (!book) {
     return (
@@ -39,41 +79,46 @@ export default function BookPage({ book, locationName }) {
     ? book.imagePaths
     : [];
 
-  // Choose largest cover available: prefer OpenLibrary L, then M, then S.
-  // For Google Books, prefer highest zoom parameter (e.g., zoom=6,5...)
-  const chooseLargestCover = (urls) => {
-    if (!urls || !Array.isArray(urls) || urls.length === 0) return null;
+  // Build cover candidates largest->smallest: OpenLibrary L/M/S then Google high zoom to low.
+  const getCoverCandidates = (urls) => {
+    if (!urls || !Array.isArray(urls) || urls.length === 0) return [];
+
+    const unique = [...new Set(urls.filter(Boolean))];
 
     // OpenLibrary L/M/S
-    const olL = urls.find(u => u.includes('-L.jpg'));
-    if (olL) return olL;
-    const olM = urls.find(u => u.includes('-M.jpg'));
-    if (olM) return olM;
+    const olL = unique.find(u => u.includes('-L.jpg'));
+    const olM = unique.find(u => u.includes('-M.jpg'));
+    const olS = unique.find(u => u.includes('-S.jpg'));
 
-    // Google Books: pick highest zoom value
-    const zoomPairs = urls.map(u => {
+    // Google Books: order by highest zoom first
+    const zoomPairs = unique.map(u => {
       const m = u.match(/zoom=(\d+)/);
       return { url: u, zoom: m ? parseInt(m[1], 10) : null };
     }).filter(p => p.zoom !== null);
-    if (zoomPairs.length > 0) {
-      zoomPairs.sort((a,b) => b.zoom - a.zoom);
-      return zoomPairs[0].url;
-    }
+    zoomPairs.sort((a,b) => b.zoom - a.zoom);
+    const googleOrdered = zoomPairs.map(p => p.url);
 
-    // Fallback: first item (often largest in typical arrays)
-    return urls[0] || null;
+    const primaryOrdered = [olL, olM, olS, ...googleOrdered].filter(Boolean);
+    const remaining = unique.filter(u => !primaryOrdered.includes(u));
+    return [...primaryOrdered, ...remaining];
   };
 
-  let coverLarge = '';
+  let coverCandidates = [];
   if (book.coverImages && Array.isArray(book.coverImages) && book.coverImages.length > 0) {
-    coverLarge = chooseLargestCover(book.coverImages) || '';
+    coverCandidates = getCoverCandidates(book.coverImages);
   } else if (book.coverImage) {
-    coverLarge = book.coverImage;
+    coverCandidates = [book.coverImage];
   } else if (book.cover) {
-    coverLarge = book.cover;
+    coverCandidates = [book.cover];
   }
 
+  const coverLarge = coverCandidates[0] || '';
+
   const currentHero = heroImages.length > 0 ? heroImages[idx] : coverLarge;
+
+  useEffect(() => {
+    setHeroSrc(currentHero || '');
+  }, [currentHero]);
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
@@ -85,8 +130,17 @@ export default function BookPage({ book, locationName }) {
         <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
           {/* Hero Section */}
           <Box sx={{ position: 'relative', width: { xs: '100%', md: '52%' }, height: { xs: 320, md: 520 }, background: '#000' }}>
-            {currentHero && (
-              <Box component="img" src={currentHero} sx={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            {heroSrc && (
+              <Box
+                component="img"
+                src={heroSrc}
+                onError={() => {
+                  if (currentHero && !heroSrc.startsWith('/api/image')) {
+                    setHeroSrc(`/api/image?url=${encodeURIComponent(currentHero)}`);
+                  }
+                }}
+                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
             )}
 
             {/* Dots for multi-photo toggle */}
@@ -119,7 +173,7 @@ export default function BookPage({ book, locationName }) {
                 boxShadow: 3
               }}
             >
-              <CoverImg src={coverLarge} title={book.title} authors={book.authors} sx={{ height: { xs: 160, md: 240 } }} />
+              <CoverImg src={coverLarge} candidates={coverCandidates} title={book.title} authors={book.authors} sx={{ height: { xs: 160, md: 240 } }} />
             </Box>
           </Box>
 
