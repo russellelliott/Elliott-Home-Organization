@@ -119,6 +119,11 @@ export default async function handler(req, res) {
 
       matched += 1;
 
+      await adminDb.collection("books").doc(doc.id).update({
+        authorsOld: authors,
+        updatedAt: new Date().toISOString()
+      });
+
       try {
         const cleanedAuthors = await normalizeAuthorsWithGemini(model, authors);
 
