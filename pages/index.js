@@ -4,13 +4,16 @@ import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
 import {
-  Container,
-  Typography,
-  Paper,
   Box,
-  Link,
+  Chip,
+  InputAdornment,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material';
-import { DataGrid, GridToolbar } from '@mui/x-data-grid';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import { DataGrid } from '@mui/x-data-grid';
 import { getAllBooksForList } from '../lib/books';
 import { useBooks } from '../context/BooksContext';
 
@@ -51,9 +54,23 @@ const BookCover = ({ url }) => {
   );
 };
 
+function colorFromValue(value) {
+  let hash = 0;
+
+  for (let index = 0; index < value.length; index += 1) {
+    hash = value.charCodeAt(index) + ((hash << 5) - hash);
+    hash |= 0;
+  }
+
+  const hue = Math.abs(hash) % 360;
+  return `hsl(${hue}, 60%, 70%)`;
+}
+
 export default function BooksList({ books }) {
   const router = useRouter();
   const booksContext = useBooks();
+  const [search, setSearch] = useState('');
+  const [selectedLocation, setSelectedLocation] = useState('all');
   const rows = useMemo(() => {
     if (books.length > 0) return books;
     return booksContext?.books || [];
@@ -72,16 +89,64 @@ export default function BooksList({ books }) {
     booksContext?.setTableState(paginationModel);
   }, [paginationModel, booksContext]);
 
-  const visibleBooks = useMemo(() => {
+  const locationOptions = useMemo(() => {
+    const counts = new Map();
+    rows.forEach((book) => {
+      const location = book.locationName?.trim() || 'No location';
+      counts.set(location, (counts.get(location) || 0) + 1);
+    });
+
+    return [
+      { value: 'all', label: 'All locations', count: rows.length },
+      ...Array.from(counts.entries())
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([label, count]) => ({ value: label, label, count })),
+    ];
+  }, [rows]);
+
+  const effectiveLocation =
+    selectedLocation !== 'all' && locationOptions.some((option) => option.value === selectedLocation)
+      ? selectedLocation
+      : 'all';
+
+  const filteredRows = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    return rows.filter((book) => {
+      const bookLocation = book.locationName?.trim() || 'No location';
+      const matchesLocation = effectiveLocation === 'all' || bookLocation === effectiveLocation;
+
+      if (!matchesLocation) return false;
+
+      if (!query) return true;
+
+      const haystack = [
+        book.title,
+        Array.isArray(book.authors) ? book.authors.join(' ') : '',
+        book.publisher,
+        book.publishedDate,
+        book.isbn,
+        book.locationName,
+        book.description,
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      return haystack.includes(query);
+    });
+  }, [rows, search, effectiveLocation]);
+
+  const visibleRows = useMemo(() => {
     const start = paginationModel.page * paginationModel.pageSize;
     const end = start + paginationModel.pageSize;
-    return rows.slice(start, end);
-  }, [rows, paginationModel.page, paginationModel.pageSize]);
+    return filteredRows.slice(start, end);
+  }, [filteredRows, paginationModel.page, paginationModel.pageSize]);
 
-  const likelyRoutes = useMemo(() => visibleBooks.map((book) => `/book/${book.id}`), [visibleBooks]);
+  const likelyRoutes = useMemo(() => visibleRows.map((book) => `/book/${book.id}`), [visibleRows]);
   const likelyImages = useMemo(
-    () => visibleBooks.map((book) => book.heroPreview || book.cover).filter(Boolean),
-    [visibleBooks]
+    () => visibleRows.map((book) => book.heroPreview || book.cover).filter(Boolean),
+    [visibleRows]
   );
 
   useEffect(() => {
@@ -109,115 +174,83 @@ export default function BooksList({ books }) {
       }
     },
     {
-      field: 'title',
-      headerName: 'Title',
-      flex: 1.1,
-      minWidth: 150,
-      cellClassName: 'wrap-cell',
-      renderCell: (params) => (
-        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {params.value}
-        </Box>
-      )
-    },
-    {
-      field: 'authors',
-      headerName: 'Author(s)',
-      flex: 0.9,
-      minWidth: 130,
-      cellClassName: 'wrap-cell',
-      renderCell: (params) => (
-        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {Array.isArray(params.value) ? params.value.join(', ') : ''}
-        </Box>
-      )
-    },
-    {
-      field: 'publisher',
-      headerName: 'Publisher',
+      field: 'book',
+      headerName: 'Book',
       flex: 1,
-      minWidth: 180,
-      cellClassName: 'wrap-cell',
+      minWidth: 420,
       renderCell: (params) => (
-        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {params.value}
-        </Box>
-      )
-    },
-    {
-      field: 'publishedDate',
-      headerName: 'Published',
-      width: 96,
-      cellClassName: 'wrap-cell',
-      renderCell: (params) => (
-        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {params.value}
-        </Box>
-      )
-    },
-    {
-      field: 'isbn',
-      headerName: 'ISBN',
-      width: 152,
-      cellClassName: 'wrap-cell',
-      renderCell: (params) => (
-        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {params.value}
-        </Box>
-      )
-    },
-    {
-      field: 'locationName',
-      headerName: 'Location',
-      width: 175,
-      cellClassName: 'wrap-cell',
-      renderCell: (params) => (
-        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {params.value}
-        </Box>
-      )
-    },
-    {
-      field: 'description',
-      headerName: 'Description',
-      flex: 2.1,
-      minWidth: 260,
-      renderCell: (params) => (
-        <Box
-          title={params.value || ''}
-          sx={{
-            width: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
-            lineHeight: 1.25,
-            py: 0.5
-          }}
-        >
-          {params.value}
-        </Box>
-      )
-    },
-    { 
-      field: 'sources', 
-      headerName: 'Sources', 
-      width: 96,
-      renderCell: (params) => (
-        Array.isArray(params.row.sources) && params.row.sources.length > 0 ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
-            {params.row.sources.map((src, idx) => (
-              <Link key={`${src}-${idx}`} href={src} target="_blank" rel="noopener noreferrer" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
-                [{idx + 1}]
-              </Link>
-            ))}
+        <Box sx={{ py: 1.25, display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%' }}>
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, mb: 0.25 }}>
+              {params.row.title}
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.35 }}>
+              {Array.isArray(params.row.authors) && params.row.authors.length > 0
+                ? params.row.authors.join(', ')
+                : 'Unknown author'}
+              {params.row.publisher ? ` · ${params.row.publisher}` : ''}
+              {params.row.publishedDate ? ` · ${params.row.publishedDate}` : ''}
+            </Typography>
+
+            <Typography
+              variant="body2"
+              sx={{
+                mt: 1,
+                whiteSpace: 'normal',
+                overflowWrap: 'anywhere',
+                lineHeight: 1.45,
+                color: 'text.secondary',
+                maxWidth: 980,
+                display: '-webkit-box',
+                WebkitBoxOrient: 'vertical',
+                WebkitLineClamp: 3,
+                overflow: 'hidden',
+              }}
+            >
+              {params.row.description || 'No description available.'}
+            </Typography>
           </Box>
-        ) : null
+
+          <Stack
+            spacing={0.75}
+            alignItems="flex-end"
+            sx={{ minWidth: 170, flexShrink: 0, pt: 0.25 }}
+          >
+            {params.row.locationName ? (
+              <Chip
+                label={params.row.locationName}
+                size="small"
+                sx={{
+                  alignSelf: 'flex-end',
+                  backgroundColor: colorFromValue(`location:${params.row.locationName}`),
+                  color: 'rgba(17, 24, 39, 0.92)',
+                  fontWeight: 700,
+                  '& .MuiChip-label': { px: 1 },
+                }}
+              />
+            ) : null}
+            {params.row.isbn ? (
+              <Chip
+                label={params.row.isbn}
+                size="small"
+                variant="outlined"
+                sx={{
+                  alignSelf: 'flex-end',
+                  borderColor: 'rgba(17, 24, 39, 0.16)',
+                  color: 'text.secondary',
+                  backgroundColor: 'rgba(255,255,255,0.9)',
+                  '& .MuiChip-label': { px: 1 },
+                }}
+              />
+            ) : null}
+          </Stack>
+        </Box>
       )
     },
   ];
 
   return (
-    <Container maxWidth="xl" sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', py: 2 }}>
+    <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', p: { xs: 2, md: 3 }, gap: 2 }}>
       <Head>
         <title>My Library</title>
         {likelyImages.map((src) => (
@@ -225,25 +258,99 @@ export default function BooksList({ books }) {
         ))}
       </Head>
 
-      <Typography variant="h4" gutterBottom>
-        My Library
-      </Typography>
-      
-      <Paper sx={{ flexGrow: 1, width: '100%', overflow: 'hidden' }}>
+      <Paper
+        elevation={0}
+        sx={{
+          borderRadius: 4,
+          border: '1px solid rgba(17, 24, 39, 0.08)',
+          background: 'linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(248,246,240,0.98) 100%)',
+          px: { xs: 2, md: 3 },
+          py: { xs: 2, md: 2.5 },
+        }}
+      >
+        <Stack
+          direction={{ xs: 'column', lg: 'row' }}
+          spacing={2}
+          justifyContent="space-between"
+          alignItems={{ xs: 'stretch', lg: 'center' }}
+        >
+          <Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, letterSpacing: -0.5 }}>
+              My Library
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              Browse, filter, and search your shelf inventory.
+            </Typography>
+          </Box>
+
+          <Stack direction={{ xs: 'column', md: 'row' }} spacing={1.5} alignItems={{ xs: 'stretch', md: 'center' }}>
+            <TextField
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value);
+                setPaginationModel((current) => ({ ...current, page: 0 }));
+              }}
+              placeholder="Search books..."
+              size="small"
+              sx={{ minWidth: { xs: '100%', md: 280 } }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchOutlinedIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <Chip
+              label={
+                filteredRows.length === rows.length
+                  ? `${rows.length} books`
+                  : `${filteredRows.length} of ${rows.length} books`
+              }
+              sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
+            />
+          </Stack>
+        </Stack>
+
+        <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" sx={{ mt: 2 }}>
+          {locationOptions.map((option) => (
+            <Chip
+              key={option.value}
+              label={`${option.label}${option.count != null ? ` (${option.count})` : ''}`}
+              onClick={() => {
+                setSelectedLocation(option.value);
+                setPaginationModel((current) => ({ ...current, page: 0 }));
+              }}
+              color={effectiveLocation === option.value ? 'primary' : 'default'}
+              variant={effectiveLocation === option.value ? 'filled' : 'outlined'}
+              sx={{ borderRadius: 999, px: 0.5 }}
+            />
+          ))}
+        </Stack>
+      </Paper>
+
+      <Paper
+        elevation={0}
+        sx={{
+          flex: 1,
+          minHeight: 0,
+          width: '100%',
+          overflow: 'hidden',
+          borderRadius: 4,
+          border: '1px solid rgba(17, 24, 39, 0.08)',
+          backgroundColor: '#fff',
+        }}
+      >
         <DataGrid
-          rows={rows}
+          rows={filteredRows}
           columns={columns}
-          rowHeight={80}
+          rowHeight={148}
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
           pageSizeOptions={[7, 10, 25, 50, 100]}
-          slots={{ toolbar: GridToolbar }}
-          slotProps={{
-            toolbar: {
-              showQuickFilter: true,
-            },
-          }}
           disableRowSelectionOnClick
+          hideFooterSelectedRowCount
+          localeText={{ noRowsLabel: 'No books match this filter.' }}
           onRowClick={(params) => {
             // Use hard navigation to avoid stale client-route state where URL changes but view does not.
             if (typeof window !== 'undefined') {
@@ -258,23 +365,27 @@ export default function BooksList({ books }) {
           sx={{
             border: 0,
             width: '100%',
-            fontSize: '0.82rem',
+            fontSize: '0.85rem',
             '& .MuiDataGrid-columnHeaders': {
-              fontSize: '0.78rem'
+              fontSize: '0.78rem',
+              backgroundColor: '#f7f4ec',
+              borderBottom: '1px solid rgba(17, 24, 39, 0.06)'
             },
             '& .MuiDataGrid-cell': {
-              fontSize: '0.82rem'
-            },
-            '& .wrap-cell': {
-              alignItems: 'flex-start'
+              fontSize: '0.85rem',
+              py: 1,
+              alignItems: 'flex-start',
             },
             '& .MuiDataGrid-virtualScroller': {
               overflowX: 'hidden !important'
-            }
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: 'rgba(31, 74, 143, 0.04)',
+            },
           }}
         />
       </Paper>
-    </Container>
+    </Box>
   );
 }
 
