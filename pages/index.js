@@ -170,7 +170,11 @@ export default function BooksList({ books }) {
       width: 56,
       renderCell: (params) => {
         // `cover` contains the smallest available cover URL for the table
-        return <BookCover url={params.value || ''} />;
+        return (
+          <Box sx={{ width: 56, height: 56, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <BookCover url={params.value || ''} />
+          </Box>
+        );
       }
     },
     {
@@ -179,12 +183,12 @@ export default function BooksList({ books }) {
       flex: 1,
       minWidth: 420,
       renderCell: (params) => (
-        <Box sx={{ py: 1.25, display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%' }}>
+        <Box sx={{ py: 0.75, display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%' }}>
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, lineHeight: 1.2, mb: 0.25 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.2, mb: 0.15 }}>
               {params.row.title}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.35 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.25, fontSize: '0.79rem' }}>
               {Array.isArray(params.row.authors) && params.row.authors.length > 0
                 ? params.row.authors.join(', ')
                 : 'Unknown author'}
@@ -195,16 +199,17 @@ export default function BooksList({ books }) {
             <Typography
               variant="body2"
               sx={{
-                mt: 1,
+                mt: 0.5,
                 whiteSpace: 'normal',
                 overflowWrap: 'anywhere',
-                lineHeight: 1.45,
+                lineHeight: 1.3,
                 color: 'text.secondary',
                 maxWidth: 980,
                 display: '-webkit-box',
                 WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: 3,
+                WebkitLineClamp: 2,
                 overflow: 'hidden',
+                fontSize: '0.79rem',
               }}
             >
               {params.row.description || 'No description available.'}
@@ -212,9 +217,9 @@ export default function BooksList({ books }) {
           </Box>
 
           <Stack
-            spacing={0.75}
+            spacing={0.4}
             alignItems="flex-end"
-            sx={{ minWidth: 170, flexShrink: 0, pt: 0.25 }}
+            sx={{ minWidth: 170, flexShrink: 0, pt: 0.1 }}
           >
             {params.row.locationName ? (
               <Chip
@@ -225,23 +230,15 @@ export default function BooksList({ books }) {
                   backgroundColor: colorFromValue(`location:${params.row.locationName}`),
                   color: 'rgba(17, 24, 39, 0.92)',
                   fontWeight: 700,
+                  height: 24,
                   '& .MuiChip-label': { px: 1 },
                 }}
               />
             ) : null}
             {params.row.isbn ? (
-              <Chip
-                label={params.row.isbn}
-                size="small"
-                variant="outlined"
-                sx={{
-                  alignSelf: 'flex-end',
-                  borderColor: 'rgba(17, 24, 39, 0.16)',
-                  color: 'text.secondary',
-                  backgroundColor: 'rgba(255,255,255,0.9)',
-                  '& .MuiChip-label': { px: 1 },
-                }}
-              />
+              <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.15, textAlign: 'right' }}>
+                {params.row.isbn}
+              </Typography>
             ) : null}
           </Stack>
         </Box>
@@ -332,10 +329,8 @@ export default function BooksList({ books }) {
       <Paper
         elevation={0}
         sx={{
-          flex: 1,
-          minHeight: 0,
           width: '100%',
-          overflow: 'hidden',
+          overflow: 'visible',
           borderRadius: 4,
           border: '1px solid rgba(17, 24, 39, 0.08)',
           backgroundColor: '#fff',
@@ -344,7 +339,8 @@ export default function BooksList({ books }) {
         <DataGrid
           rows={filteredRows}
           columns={columns}
-          rowHeight={148}
+          autoHeight
+          rowHeight={106}
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
           pageSizeOptions={[7, 10, 25, 50, 100]}
@@ -373,7 +369,7 @@ export default function BooksList({ books }) {
             },
             '& .MuiDataGrid-cell': {
               fontSize: '0.85rem',
-              py: 1,
+              py: 0.75,
               alignItems: 'flex-start',
             },
             '& .MuiDataGrid-virtualScroller': {
