@@ -371,11 +371,7 @@ export default function BooksList({ books }) {
               }}
             />
             <Chip
-              label={
-                filteredRows.length === rows.length
-                  ? `${rows.length} books`
-                  : `${filteredRows.length} of ${rows.length} books`
-              }
+              label={`${filteredRows.length} of ${rows.length} books`}
               sx={{ alignSelf: 'flex-start', fontWeight: 700, minWidth: 160, display: 'flex', justifyContent: 'center' }}
             />
           </Stack>
