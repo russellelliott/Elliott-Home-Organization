@@ -11,7 +11,7 @@ export function BooksProvider({ initialBooks = [], children }) {
 
   const [tableState, setTableState] = useState({
     page: 0,
-    pageSize: 10,
+    pageSize: 7,
   });
 
   const [imageCache, setImageCache] = useState(() => new Set());

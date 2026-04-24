@@ -43,7 +43,7 @@ const BookCover = ({ url }) => {
         src={src}
         alt="cover"
         fill
-        sizes="92px"
+        sizes="56px"
         style={{ objectFit: 'contain' }}
         onError={handleError}
       />
@@ -61,7 +61,7 @@ export default function BooksList({ books }) {
 
   const [paginationModel, setPaginationModel] = useState(() => ({
     page: booksContext?.tableState?.page ?? 0,
-    pageSize: booksContext?.tableState?.pageSize ?? 10,
+    pageSize: booksContext?.tableState?.pageSize ?? 7,
   }));
 
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function BooksList({ books }) {
     {
       field: 'cover',
       headerName: 'Cover',
-      width: 92,
+      width: 56,
       renderCell: (params) => {
         // `cover` contains the smallest available cover URL for the table
         return <BookCover url={params.value || ''} />;
@@ -132,9 +132,40 @@ export default function BooksList({ books }) {
         </Box>
       )
     },
-    { field: 'publisher', headerName: 'Publisher', flex: 0.8, minWidth: 110 },
-    { field: 'publishedDate', headerName: 'Published', width: 96 },
-    { field: 'isbn', headerName: 'ISBN', width: 152 },
+    {
+      field: 'publisher',
+      headerName: 'Publisher',
+      flex: 1,
+      minWidth: 180,
+      cellClassName: 'wrap-cell',
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
+          {params.value}
+        </Box>
+      )
+    },
+    {
+      field: 'publishedDate',
+      headerName: 'Published',
+      width: 96,
+      cellClassName: 'wrap-cell',
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
+          {params.value}
+        </Box>
+      )
+    },
+    {
+      field: 'isbn',
+      headerName: 'ISBN',
+      width: 152,
+      cellClassName: 'wrap-cell',
+      renderCell: (params) => (
+        <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
+          {params.value}
+        </Box>
+      )
+    },
     {
       field: 'locationName',
       headerName: 'Location',
@@ -202,10 +233,10 @@ export default function BooksList({ books }) {
         <DataGrid
           rows={rows}
           columns={columns}
-          rowHeight={104}
+          rowHeight={80}
           paginationModel={paginationModel}
           onPaginationModelChange={setPaginationModel}
-          pageSizeOptions={[10, 25, 50, 100]}
+          pageSizeOptions={[7, 10, 25, 50, 100]}
           slots={{ toolbar: GridToolbar }}
           slotProps={{
             toolbar: {
