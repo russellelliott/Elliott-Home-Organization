@@ -48,7 +48,7 @@ export default function Navbar() {
       return;
     }
 
-    router.push(href);
+    router.push(href, undefined, { scroll: false });
   };
 
   const handleLogout = async () => {
