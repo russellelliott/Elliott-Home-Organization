@@ -2,6 +2,9 @@
 import axios from 'axios';
 import heicConvert from 'heic-convert';
 
+const imageCache = new Map();
+const MAX_CACHE_ENTRIES = 500;
+
 export const config = {
   api: {
     responseLimit: false,
@@ -15,6 +18,14 @@ export default async function handler(req, res) {
     return res.status(400).send('Missing URL');
   }
 
+  if (imageCache.has(url)) {
+    const cached = imageCache.get(url);
+    res.setHeader('Content-Type', cached.contentType);
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+    res.setHeader('X-Image-Cache', 'HIT');
+    return res.send(cached.buffer);
+  }
+
   try {
     const response = await axios({
       url,
@@ -23,7 +34,8 @@ export default async function handler(req, res) {
     });
 
     const contentType = response.headers['content-type'] || '';
-    const buffer = Buffer.from(response.data);
+    let buffer = Buffer.from(response.data);
+    let finalContentType = contentType;
 
     // Robust HEIC detection by checking magic bytes (ftyp box)
     // HEIC files start with 00 00 00 XX 66 74 79 70 (ftyp)
@@ -50,23 +62,30 @@ export default async function handler(req, res) {
           format: 'JPEG',
           quality: 0.8
         });
-        res.setHeader('Content-Type', 'image/jpeg');
-        // Cache for a long time since these are immutable hashes mostly
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-        return res.send(jpegBuffer);
+        buffer = Buffer.from(jpegBuffer);
+        finalContentType = 'image/jpeg';
       } catch (error) {
         console.error('HEIC conversion failed:', error);
-        // If conversion fails, default to passing through
       }
     }
 
-    // Pass through original if not HEIC or conversion failed
-    res.setHeader('Content-Type', contentType);
+    if (imageCache.size >= MAX_CACHE_ENTRIES) {
+      const oldestKey = imageCache.keys().next().value;
+      imageCache.delete(oldestKey);
+    }
+
+    imageCache.set(url, {
+      buffer,
+      contentType: finalContentType,
+    });
+
+    res.setHeader('Content-Type', finalContentType);
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
-    res.send(buffer);
+    res.setHeader('X-Image-Cache', 'MISS');
+    return res.send(buffer);
 
   } catch (error) {
     console.error('Image proxy error:', error.message);
-    res.status(500).send('Error fetching image');
+    return res.status(500).send('Error fetching image');
   }
 }

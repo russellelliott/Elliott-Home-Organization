@@ -1,8 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
-import { adminDb } from '../lib/firebase-admin';
 import { useRouter } from 'next/router';
+import Image from 'next/image';
 import {
   Container,
   Typography,
@@ -11,6 +11,7 @@ import {
   Link,
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
+import { getAllBooksForList } from '../lib/books';
 
 const BookCover = ({ url }) => {
   const [src, setSrc] = useState(url);
@@ -36,18 +37,33 @@ const BookCover = ({ url }) => {
   }
 
   return (
-    <Box 
-      component="img" 
-      src={src} 
-      alt="cover" 
-      onError={handleError}
-      sx={{ height: '100%', width: '100%', objectFit: 'contain' }} 
-    />
+    <Box sx={{ position: 'relative', width: '100%', height: '100%' }}>
+      <Image
+        src={src}
+        alt="cover"
+        fill
+        sizes="56px"
+        style={{ objectFit: 'contain' }}
+        onError={handleError}
+      />
+    </Box>
   );
 };
 
 export default function BooksList({ books }) {
   const router = useRouter();
+
+  const likelyRoutes = useMemo(() => books.slice(0, 24).map((book) => `/book/${book.id}`), [books]);
+  const likelyImages = useMemo(
+    () => books.slice(0, 12).map((book) => book.heroPreview || book.cover).filter(Boolean),
+    [books]
+  );
+
+  useEffect(() => {
+    likelyRoutes.forEach((route) => {
+      router.prefetch(route);
+    });
+  }, [router, likelyRoutes]);
   
   const columns = [
     {
@@ -79,7 +95,7 @@ export default function BooksList({ books }) {
       cellClassName: 'wrap-cell',
       renderCell: (params) => (
         <Box sx={{ whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.25, py: 0.5 }}>
-          {params.value}
+          {Array.isArray(params.value) ? params.value.join(', ') : ''}
         </Box>
       )
     },
@@ -140,6 +156,9 @@ export default function BooksList({ books }) {
     <Container maxWidth="xl" sx={{ height: 'calc(100vh - 64px)', display: 'flex', flexDirection: 'column', py: 2 }}>
       <Head>
         <title>My Library</title>
+        {likelyImages.map((src) => (
+          <link key={src} rel="preload" as="image" href={src} />
+        ))}
       </Head>
 
       <Typography variant="h4" gutterBottom>
@@ -168,6 +187,9 @@ export default function BooksList({ books }) {
             // Navigate to individual book page using the document id as slug
             router.push(`/book/${params.id}`);
           }}
+          onCellMouseEnter={(params) => {
+            router.prefetch(`/book/${params.id}`);
+          }}
           sx={{
             border: 0,
             width: '100%',
@@ -191,109 +213,19 @@ export default function BooksList({ books }) {
   );
 }
 
-export async function getServerSideProps() {
+export async function getStaticProps() {
   try {
-    // 1. Fetch Locations Map
-    const locationsRef = adminDb.collection('locations');
-    const locationsSnapshot = await locationsRef.get();
-    const locationsMap = {};
-    locationsSnapshot.forEach(doc => {
-      // Assuming location document has a 'name' field, or use ID as fallback
-      const data = doc.data();
-      // Try to find a sensible name field. If the user hasn't specified schema, we might need to guess 
-      // or just check common fields. But user said "accessing the locations collection" implies they exist.
-      // We'll assume 'name' exists based on typical schemas.
-      locationsMap[doc.id] = data.name || data.title || doc.id;
-    });
-
-    // 2. Fetch Books
-    const booksRef = adminDb.collection('books');
-    const querySnapshot = await booksRef.get();
-
-    const books = querySnapshot.docs.map(doc => {
-      const data = doc.data();
-      
-      // Resolve Location
-      const locName = data.locationId ? (locationsMap[data.locationId] || data.locationId) : '';
-
-      const urlSources = Array.isArray(data.sources)
-        ? data.sources.filter(v => typeof v === 'string' && /^https?:\/\//i.test(v))
-        : [];
-
-      const normalizedSources = urlSources.length > 0
-        ? urlSources
-        : [data.sourceUrl, data.source].filter(v => typeof v === 'string' && /^https?:\/\//i.test(v));
-
-      const imageSources = Array.isArray(data.imageSources)
-        ? data.imageSources
-        : ((Array.isArray(data.sources) ? data.sources.filter(v => typeof v === 'string' && !/^https?:\/\//i.test(v)) : []));
-
-      // Handle Authors string vs array
-      const rawAuthors = data.authors || data.author;
-      const authorsList = Array.isArray(rawAuthors) ? rawAuthors : (rawAuthors ? [rawAuthors] : []);
-
-      // Determine cover images for main table: choose the SMALLEST available cover from coverImages
-      // (enrich flow stores largest first, smaller versions later; OpenLibrary pushes L,M,S)
-      // Helper: choose the smallest cover from a list of URLs
-      const chooseSmallestCover = (urls) => {
-        if (!urls || !Array.isArray(urls) || urls.length === 0) return null;
-
-        // Prefer OpenLibrary S.jpg
-        const olS = urls.find(u => u.includes('-S.jpg'));
-        if (olS) return olS;
-
-        // Prefer the smallest zoom for Google Books (zoom=1 etc.)
-        const zoomPairs = urls.map(u => {
-          const m = u.match(/zoom=(\d+)/);
-          return { url: u, zoom: m ? parseInt(m[1], 10) : null };
-        }).filter(p => p.zoom !== null);
-        if (zoomPairs.length > 0) {
-          zoomPairs.sort((a,b) => a.zoom - b.zoom);
-          return zoomPairs[0].url;
-        }
-
-        // Fallback: return last item (often smallest when stored L,M,S)
-        return urls[urls.length - 1] || null;
-      };
-
-      let coverSmall = '';
-      if (data.coverImages && Array.isArray(data.coverImages) && data.coverImages.length > 0) {
-        coverSmall = chooseSmallestCover(data.coverImages) || '';
-      } else if (data.coverImage) {
-        coverSmall = data.coverImage;
-      } else if (data.cover) {
-        coverSmall = data.cover;
-      } else {
-        coverSmall = '';
-      }
-
-      // Projection for Slimming Payload
-      return {
-        id: doc.id,
-        title: data.title || 'Untitled',
-        authors: authorsList.join(', '), // Flatten for DataGrid
-        publisher: data.publisher || '',
-        publishedDate: data.publishedDate || '',
-        isbn: data.isbn || '',
-        locationName: locName,
-        locationId: data.locationId || '',
-        sources: normalizedSources,
-        description: data.description ? data.description.substring(0, 500) : '',
-        cover: coverSmall
-      };
-    });
+    const books = await getAllBooksForList();
 
     return {
-      props: {
-        books,
-      },
+      props: { books },
+      revalidate: 60,
     };
   } catch (error) {
-    console.error("Server-side fetch error:", error);
+    console.error('Static fetch error:', error);
     return {
-      props: {
-        books: [],
-      },
+      props: { books: [] },
+      revalidate: 30,
     };
   }
 }

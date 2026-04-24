@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
-import { adminDb } from '../../lib/firebase-admin';
+import Image from 'next/image';
 import { Container, Box, Typography, Paper, Link } from '@mui/material';
+import { getAllBookSlugs, getBookBySlug } from '../../lib/books';
 
 const CoverImg = ({ src, candidates = [], title, authors, sx }) => {
   const normalizedCandidates = useMemo(() => {
@@ -39,33 +40,23 @@ const CoverImg = ({ src, candidates = [], title, authors, sx }) => {
   }
 
   return (
-    <Box
-      component="img"
-      src={currentSrc}
-      alt={title || 'cover'}
-      onError={useNextCandidate}
-      onLoad={(e) => {
-        const img = e.currentTarget;
-        const w = img.naturalWidth || 0;
-        const h = img.naturalHeight || 0;
-        if (!w || !h) return;
-
-        // Typical portrait book covers are roughly 0.5-0.8 width/height.
-        // If not portrait-like, try a smaller candidate (often a better-cropped zoom).
-        const ratio = w / h;
-        const looksLikeBookCover = ratio >= 0.42 && ratio <= 0.9;
-        if (!looksLikeBookCover) {
-          useNextCandidate();
-        }
-      }}
-      sx={{ width: '100%', height: '100%', objectFit: 'contain', ...sx }}
-    />
+    <Box sx={{ position: 'relative', width: '100%', height: '100%', ...sx }}>
+      <Image
+        src={currentSrc}
+        alt={title || 'cover'}
+        fill
+        sizes="180px"
+        style={{ objectFit: 'contain' }}
+        onError={useNextCandidate}
+      />
+    </Box>
   );
 };
 
 export default function BookPage({ book, locationName }) {
   const [idx, setIdx] = useState(0);
   const [heroSrc, setHeroSrc] = useState('');
+  const authorsText = Array.isArray(book?.authors) ? book.authors.join(', ') : '';
 
   if (!book) {
     return (
@@ -131,21 +122,24 @@ export default function BookPage({ book, locationName }) {
           {/* Hero Section */}
           <Box sx={{ position: 'relative', width: { xs: '100%', md: '52%' }, height: { xs: 320, md: 520 }, background: '#000' }}>
             {heroSrc && (
-              <Box
-                component="img"
+              <Image
                 src={heroSrc}
+                alt={book.title || 'Shelf image'}
+                fill
+                priority
+                sizes="(max-width: 900px) 100vw, 52vw"
                 onError={() => {
                   if (currentHero && !heroSrc.startsWith('/api/image')) {
                     setHeroSrc(`/api/image?url=${encodeURIComponent(currentHero)}`);
                   }
                 }}
-                sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ objectFit: 'cover' }}
               />
             )}
 
             {/* Dots for multi-photo toggle */}
             {heroImages.length > 1 && (
-              <Box sx={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1 }}>
+              <Box sx={{ position: 'absolute', bottom: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: 1, zIndex: 2 }}>
                 {heroImages.map((_, i) => (
                   <Box
                     key={i}
@@ -170,17 +164,24 @@ export default function BookPage({ book, locationName }) {
                 top: '50%',
                 transform: 'translateY(-50%)',
                 width: { xs: 120, md: 180 },
-                boxShadow: 3
+                boxShadow: 3,
+                zIndex: 2
               }}
             >
-              <CoverImg src={coverLarge} candidates={coverCandidates} title={book.title} authors={book.authors} sx={{ height: { xs: 160, md: 240 } }} />
+              <CoverImg
+                src={coverLarge}
+                candidates={coverCandidates}
+                title={book.title}
+                authors={authorsText}
+                sx={{ height: { xs: 160, md: 240 } }}
+              />
             </Box>
           </Box>
 
           {/* Metadata and description beside hero */}
           <Box sx={{ width: { xs: '100%', md: '48%' }, p: { xs: 3, md: 4 } }}>
             <Typography variant="h4" sx={{ fontWeight: 'bold' }}>{book.title}</Typography>
-            <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 2 }}>{book.authors}</Typography>
+            <Typography variant="subtitle1" sx={{ color: 'text.secondary', mb: 2 }}>{authorsText}</Typography>
 
             <Box
               sx={{
@@ -229,60 +230,38 @@ export default function BookPage({ book, locationName }) {
   );
 }
 
-export async function getServerSideProps(context) {
-  const { slug } = context.params;
+export async function getStaticPaths() {
+  const slugs = await getAllBookSlugs();
+
+  return {
+    paths: slugs.map((slug) => ({ params: { slug } })),
+    fallback: 'blocking',
+  };
+}
+
+export async function getStaticProps({ params }) {
   try {
-    const docRef = adminDb.collection('books').doc(slug);
-    const doc = await docRef.get();
-    if (!doc.exists) {
-      return { props: { book: null } };
+    const book = await getBookBySlug(params.slug);
+
+    if (!book) {
+      return {
+        notFound: true,
+        revalidate: 30,
+      };
     }
-
-    const data = doc.data() || {};
-
-    // Resolve location name if possible
-    let locationName = null;
-    if (data.locationId) {
-      const locDoc = await adminDb.collection('locations').doc(data.locationId).get();
-      if (locDoc.exists) {
-        const ld = locDoc.data() || {};
-        locationName = ld.name || ld.title || null;
-      }
-    }
-
-    // Ensure arrays and strings are serializable
-    const urlSources = Array.isArray(data.sources)
-      ? data.sources.filter(v => typeof v === 'string' && /^https?:\/\//i.test(v))
-      : [];
-
-    const normalizedSources = urlSources.length > 0
-      ? urlSources
-      : [data.sourceUrl, data.source].filter(v => typeof v === 'string' && /^https?:\/\//i.test(v));
-
-    const book = {
-      id: doc.id,
-      title: data.title || '',
-      authors: Array.isArray(data.authors) ? data.authors.join(', ') : (data.authors || data.author || ''),
-      publisher: data.publisher || '',
-      publishedDate: data.publishedDate || data.publicationDate || '',
-      isbn: data.isbn || '',
-      pageCount: data.pageCount || null,
-      description: data.description || '',
-      coverImages: Array.isArray(data.coverImages) ? data.coverImages : (data.coverImage ? [data.coverImage] : []),
-      coverImage: data.coverImage || data.cover || null,
-      imagePaths: Array.isArray(data.imagePaths) ? data.imagePaths : [],
-      sources: normalizedSources,
-      locationId: data.locationId || ''
-    };
 
     return {
       props: {
         book,
-        locationName
-      }
+        locationName: book.locationName || null,
+      },
+      revalidate: 120,
     };
   } catch (e) {
-    console.error('Book page SSR error', e);
-    return { props: { book: null } };
+    console.error('Book page static error', e);
+    return {
+      notFound: true,
+      revalidate: 30,
+    };
   }
 }
