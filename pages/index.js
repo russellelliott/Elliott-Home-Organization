@@ -361,7 +361,7 @@ export default function BooksList({ books }) {
               }}
               placeholder="Search books..."
               size="small"
-              sx={{ minWidth: { xs: '100%', md: 280 } }}
+              sx={{ minWidth: { xs: '100%', md: 350 }, flex: { md: 1, lg: 'initial' } }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
@@ -376,7 +376,7 @@ export default function BooksList({ books }) {
                   ? `${rows.length} books`
                   : `${filteredRows.length} of ${rows.length} books`
               }
-              sx={{ alignSelf: 'flex-start', fontWeight: 700 }}
+              sx={{ alignSelf: 'flex-start', fontWeight: 700, minWidth: 160, display: 'flex', justifyContent: 'center' }}
             />
           </Stack>
         </Stack>
