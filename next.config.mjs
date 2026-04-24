@@ -3,6 +3,9 @@ const nextConfig = {
   reactStrictMode: true,
   transpilePackages: ['@mui/x-data-grid'],
   images: {
+    localPatterns: [
+      { pathname: '/api/image' },
+    ],
     remotePatterns: [
       { protocol: 'http', hostname: 'covers.openlibrary.org' },
       { protocol: 'https', hostname: 'covers.openlibrary.org' },
