@@ -8,6 +8,15 @@ export default function Navbar() {
   const { user } = useAuth();
   const router = useRouter();
 
+  const navigateHome = () => {
+    router.prefetch('/');
+    if (typeof window !== 'undefined') {
+      window.location.assign('/');
+      return;
+    }
+    router.push('/', undefined, { scroll: false });
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -25,13 +34,13 @@ export default function Navbar() {
             variant="h6" 
             component="div" 
             sx={{ mr: 4, cursor: 'pointer' }}
-            onClick={() => router.push('/')}
+            onClick={navigateHome}
         >
           Elliott Home Organizer
         </Typography>
 
         <Box sx={{ flexGrow: 1 }}>
-            <Button color="inherit" onClick={() => router.push('/')}>Books</Button>
+            <Button color="inherit" onClick={navigateHome}>Books</Button>
             <Button color="inherit" onClick={() => router.push('/upload')}>Upload</Button>
             <Button color="inherit" onClick={() => router.push('/processing')}>Processing</Button>
           <Button color="inherit" onClick={() => router.push('/enrich-books')}>Enrich Existing Books</Button>

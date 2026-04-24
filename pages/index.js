@@ -12,6 +12,7 @@ import {
 } from '@mui/material';
 import { DataGrid, GridToolbar } from '@mui/x-data-grid';
 import { getAllBooksForList } from '../lib/books';
+import { useBooks } from '../context/BooksContext';
 
 const BookCover = ({ url }) => {
   const [src, setSrc] = useState(url);
@@ -42,7 +43,7 @@ const BookCover = ({ url }) => {
         src={src}
         alt="cover"
         fill
-        sizes="56px"
+        sizes="92px"
         style={{ objectFit: 'contain' }}
         onError={handleError}
       />
@@ -52,11 +53,35 @@ const BookCover = ({ url }) => {
 
 export default function BooksList({ books }) {
   const router = useRouter();
+  const booksContext = useBooks();
+  const rows = useMemo(() => {
+    if (books.length > 0) return books;
+    return booksContext?.books || [];
+  }, [books, booksContext?.books]);
 
-  const likelyRoutes = useMemo(() => books.slice(0, 24).map((book) => `/book/${book.id}`), [books]);
+  const [paginationModel, setPaginationModel] = useState(() => ({
+    page: booksContext?.tableState?.page ?? 0,
+    pageSize: booksContext?.tableState?.pageSize ?? 10,
+  }));
+
+  useEffect(() => {
+    booksContext?.upsertBooks(rows);
+  }, [rows, booksContext]);
+
+  useEffect(() => {
+    booksContext?.setTableState(paginationModel);
+  }, [paginationModel, booksContext]);
+
+  const visibleBooks = useMemo(() => {
+    const start = paginationModel.page * paginationModel.pageSize;
+    const end = start + paginationModel.pageSize;
+    return rows.slice(start, end);
+  }, [rows, paginationModel.page, paginationModel.pageSize]);
+
+  const likelyRoutes = useMemo(() => visibleBooks.map((book) => `/book/${book.id}`), [visibleBooks]);
   const likelyImages = useMemo(
-    () => books.slice(0, 12).map((book) => book.heroPreview || book.cover).filter(Boolean),
-    [books]
+    () => visibleBooks.map((book) => book.heroPreview || book.cover).filter(Boolean),
+    [visibleBooks]
   );
 
   useEffect(() => {
@@ -64,12 +89,20 @@ export default function BooksList({ books }) {
       router.prefetch(route);
     });
   }, [router, likelyRoutes]);
+
+  useEffect(() => {
+    likelyImages.forEach((src) => {
+      const img = new window.Image();
+      img.src = src;
+    });
+    booksContext?.cacheImages(likelyImages);
+  }, [likelyImages, booksContext]);
   
   const columns = [
     {
       field: 'cover',
       headerName: 'Cover',
-      width: 56,
+      width: 92,
       renderCell: (params) => {
         // `cover` contains the smallest available cover URL for the table
         return <BookCover url={params.value || ''} />;
@@ -167,14 +200,11 @@ export default function BooksList({ books }) {
       
       <Paper sx={{ flexGrow: 1, width: '100%', overflow: 'hidden' }}>
         <DataGrid
-          rows={books}
+          rows={rows}
           columns={columns}
-          getRowHeight={() => 'auto'}
-          initialState={{
-            pagination: {
-              paginationModel: { pageSize: 10, page: 0 },
-            },
-          }}
+          rowHeight={104}
+          paginationModel={paginationModel}
+          onPaginationModelChange={setPaginationModel}
           pageSizeOptions={[10, 25, 50, 100]}
           slots={{ toolbar: GridToolbar }}
           slotProps={{
@@ -184,7 +214,11 @@ export default function BooksList({ books }) {
           }}
           disableRowSelectionOnClick
           onRowClick={(params) => {
-            // Navigate to individual book page using the document id as slug
+            // Use hard navigation to avoid stale client-route state where URL changes but view does not.
+            if (typeof window !== 'undefined') {
+              window.location.assign(`/book/${params.id}`);
+              return;
+            }
             router.push(`/book/${params.id}`);
           }}
           onCellMouseEnter={(params) => {

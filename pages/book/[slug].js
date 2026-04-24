@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import Head from 'next/head';
 import Image from 'next/image';
+import { useRouter } from 'next/router';
 import { Container, Box, Typography, Paper, Link } from '@mui/material';
 import { getAllBookSlugs, getBookBySlug } from '../../lib/books';
+import { useBooks } from '../../context/BooksContext';
 
 const CoverImg = ({ src, candidates = [], title, authors, sx }) => {
   const normalizedCandidates = useMemo(() => {
@@ -54,6 +56,8 @@ const CoverImg = ({ src, candidates = [], title, authors, sx }) => {
 };
 
 export default function BookPage({ book, locationName }) {
+  const router = useRouter();
+  const booksContext = useBooks();
   const [idx, setIdx] = useState(0);
   const [heroSrc, setHeroSrc] = useState('');
   const authorsText = Array.isArray(book?.authors) ? book.authors.join(', ') : '';
@@ -110,6 +114,30 @@ export default function BookPage({ book, locationName }) {
   useEffect(() => {
     setHeroSrc(currentHero || '');
   }, [currentHero]);
+
+  useEffect(() => {
+    router.prefetch('/');
+  }, [router]);
+
+  useEffect(() => {
+    if (!book?.id) return;
+    booksContext?.upsertBooks([
+      {
+        id: book.id,
+        title: book.title,
+        authors: Array.isArray(book.authors) ? book.authors : [],
+        publisher: book.publisher || '',
+        publishedDate: book.publishedDate || '',
+        isbn: book.isbn || '',
+        locationId: book.locationId || '',
+        locationName: locationName || book.locationName || '',
+        description: book.description || '',
+        cover: book.coverImage || '',
+        heroPreview: Array.isArray(book.imagePaths) ? book.imagePaths[0] || '' : '',
+        sources: Array.isArray(book.sources) ? book.sources : [],
+      },
+    ]);
+  }, [book, locationName, booksContext]);
 
   return (
     <Container maxWidth="lg" sx={{ py: 3 }}>
