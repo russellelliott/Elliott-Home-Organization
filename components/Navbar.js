@@ -1,16 +1,18 @@
 import {
   Avatar,
   Box,
-  Button,
   Divider,
   Drawer,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   Stack,
   Typography,
 } from '@mui/material';
+import { useState } from 'react';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
 import UploadFileOutlinedIcon from '@mui/icons-material/UploadFileOutlined';
 import HourglassBottomOutlinedIcon from '@mui/icons-material/HourglassBottomOutlined';
@@ -38,6 +40,7 @@ const toolItems = [
 export default function Navbar() {
   const { user } = useAuth();
   const router = useRouter();
+  const [profileAnchorEl, setProfileAnchorEl] = useState(null);
 
   const navigateTo = (href) => {
     if (href === '/' && typeof window !== 'undefined') {
@@ -54,6 +57,15 @@ export default function Navbar() {
     } catch (error) {
       console.error("Logout failed", error);
     }
+    setProfileAnchorEl(null);
+  };
+
+  const openProfileMenu = (event) => {
+    setProfileAnchorEl(event.currentTarget);
+  };
+
+  const closeProfileMenu = () => {
+    setProfileAnchorEl(null);
   };
 
   if (!user) return null;
@@ -163,7 +175,32 @@ export default function Navbar() {
 
         <Box sx={{ flexGrow: 1 }} />
         <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.14)' }} />
-        <Stack direction="row" spacing={1.5} alignItems="center" sx={{ pt: 1 }}>
+        <Box
+          role="button"
+          tabIndex={0}
+          onClick={openProfileMenu}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+              event.preventDefault();
+              openProfileMenu(event);
+            }
+          }}
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 1.5,
+            pt: 1,
+            px: 1,
+            py: 1,
+            borderRadius: 3,
+            cursor: 'pointer',
+            backgroundColor: 'rgba(255, 255, 255, 0.06)',
+            transition: 'background-color 0.15s ease',
+            '&:hover': {
+              backgroundColor: 'rgba(255, 255, 255, 0.12)',
+            },
+          }}
+        >
           <Avatar src={user.photoURL || ''} alt="Profile" sx={{ width: 40, height: 40 }}>
             {user.displayName?.[0] || user.email?.[0] || 'R'}
           </Avatar>
@@ -175,20 +212,31 @@ export default function Navbar() {
               {user.email || 'Library access'}
             </Typography>
           </Box>
-          <Button
-            onClick={handleLogout}
-            startIcon={<LogoutOutlinedIcon fontSize="small" />}
-            sx={{
-              color: 'inherit',
-              textTransform: 'none',
-              borderRadius: 2,
-              px: 1.25,
-              whiteSpace: 'nowrap',
-            }}
-          >
+        </Box>
+
+        <Menu
+          anchorEl={profileAnchorEl}
+          open={Boolean(profileAnchorEl)}
+          onClose={closeProfileMenu}
+          disableScrollLock
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          PaperProps={{
+            sx: {
+              mt: 1,
+              minWidth: 220,
+              borderRadius: 3,
+              overflow: 'hidden',
+            },
+          }}
+        >
+          <MenuItem onClick={handleLogout}>
+            <ListItemIcon>
+              <LogoutOutlinedIcon fontSize="small" />
+            </ListItemIcon>
             Sign out
-          </Button>
-        </Stack>
+          </MenuItem>
+        </Menu>
       </Box>
     </Drawer>
   );
