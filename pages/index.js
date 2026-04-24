@@ -239,12 +239,29 @@ export default function BooksList({ books }) {
       flex: 1,
       minWidth: 420,
       renderCell: (params) => (
-        <Box sx={{ py: 0.75, display: 'flex', gap: 2, alignItems: 'flex-start', width: '100%' }}>
+        <Box sx={{ py: 0.1, display: 'flex', gap: 0.75, alignItems: 'flex-start', width: '100%' }}>
           <Box sx={{ minWidth: 0, flex: 1 }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.2, mb: 0.15 }}>
+            <Typography
+              variant="subtitle2"
+              sx={{ fontWeight: 700, lineHeight: 1.2, mb: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+              title={params.row.title || ''}
+            >
               {params.row.title}
             </Typography>
-            <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.25, fontSize: '0.79rem' }}>
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'text.secondary',
+                lineHeight: 1.25,
+                fontSize: '0.79rem',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+              title={`${Array.isArray(params.row.authors) && params.row.authors.length > 0
+                ? params.row.authors.join(', ')
+                : 'Unknown author'}${params.row.publisher ? ` · ${params.row.publisher}` : ''}${params.row.publishedDate ? ` · ${params.row.publishedDate}` : ''}`}
+            >
               {Array.isArray(params.row.authors) && params.row.authors.length > 0
                 ? params.row.authors.join(', ')
                 : 'Unknown author'}
@@ -255,27 +272,26 @@ export default function BooksList({ books }) {
             <Typography
               variant="body2"
               sx={{
-                mt: 0.5,
-                whiteSpace: 'normal',
-                overflowWrap: 'anywhere',
+                mt: 0,
+                width: '100%',
+                minWidth: 0,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
                 lineHeight: 1.3,
                 color: 'text.secondary',
-                maxWidth: 980,
-                display: '-webkit-box',
-                WebkitBoxOrient: 'vertical',
-                WebkitLineClamp: 2,
-                overflow: 'hidden',
                 fontSize: '0.79rem',
               }}
+              title={params.row.description || ''}
             >
               {params.row.description || 'No description available.'}
             </Typography>
           </Box>
 
           <Stack
-            spacing={0.4}
+            spacing={0.1}
             alignItems="flex-end"
-            sx={{ minWidth: 170, flexShrink: 0, pt: 0.1 }}
+            sx={{ minWidth: 170, flexShrink: 0, pt: 0 }}
           >
             {params.row.locationName ? (
               <Chip
@@ -400,7 +416,7 @@ export default function BooksList({ books }) {
           columns={columns}
           autoHeight
           disableVirtualization
-          rowHeight={106}
+          rowHeight={72}
           paginationModel={paginationModel}
           onPaginationModelChange={handlePaginationModelChange}
           pageSizeOptions={[7, 10, 25, 50, 100]}
@@ -429,7 +445,7 @@ export default function BooksList({ books }) {
             },
             '& .MuiDataGrid-cell': {
               fontSize: '0.85rem',
-              py: 0.75,
+              py: 0.1,
               alignItems: 'flex-start',
             },
             '& .MuiDataGrid-virtualScroller': {
