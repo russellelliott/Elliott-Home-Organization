@@ -43,8 +43,8 @@ export default function Navbar() {
   const [profileAnchorEl, setProfileAnchorEl] = useState(null);
 
   const navigateTo = (href) => {
-    if (href === '/' && typeof window !== 'undefined') {
-      window.location.assign('/');
+    if (typeof window !== 'undefined') {
+      window.location.assign(href);
       return;
     }
 
