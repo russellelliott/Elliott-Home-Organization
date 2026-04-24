@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
 import Image from 'next/image';
@@ -14,8 +14,8 @@ import {
 } from '@mui/material';
 import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
 import { DataGrid } from '@mui/x-data-grid';
-import { getAllBooksForList } from '../lib/books';
-import { useBooks } from '../context/BooksContext';
+
+const BOOKS_LIST_CACHE_KEY = 'books-list-cache-v1';
 
 const BookCover = ({ url }) => {
   const [src, setSrc] = useState(url);
@@ -68,26 +68,83 @@ function colorFromValue(value) {
 
 export default function BooksList({ books }) {
   const router = useRouter();
-  const booksContext = useBooks();
+  const [loadedBooks, setLoadedBooks] = useState(() => books || []);
+  const [loadingBooks, setLoadingBooks] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedLocation, setSelectedLocation] = useState('all');
-  const rows = useMemo(() => {
-    if (books.length > 0) return books;
-    return booksContext?.books || [];
-  }, [books, booksContext?.books]);
+  const rows = useMemo(() => loadedBooks, [loadedBooks]);
 
-  const [paginationModel, setPaginationModel] = useState(() => ({
-    page: booksContext?.tableState?.page ?? 0,
-    pageSize: booksContext?.tableState?.pageSize ?? 7,
-  }));
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 7,
+  });
+
+  const handlePaginationModelChange = useCallback((nextModel) => {
+    setPaginationModel((current) => {
+      if (
+        current.page === nextModel.page &&
+        current.pageSize === nextModel.pageSize
+      ) {
+        return current;
+      }
+      return nextModel;
+    });
+  }, []);
 
   useEffect(() => {
-    booksContext?.upsertBooks(rows);
-  }, [rows, booksContext]);
+    let isMounted = true;
 
-  useEffect(() => {
-    booksContext?.setTableState(paginationModel);
-  }, [paginationModel, booksContext]);
+    const loadBooks = async () => {
+      if (typeof window !== 'undefined') {
+        const cached = window.sessionStorage.getItem(BOOKS_LIST_CACHE_KEY);
+        if (cached) {
+          try {
+            const parsed = JSON.parse(cached);
+            if (Array.isArray(parsed)) {
+              setLoadedBooks(parsed);
+              setLoadingBooks(false);
+              return;
+            }
+          } catch {
+            window.sessionStorage.removeItem(BOOKS_LIST_CACHE_KEY);
+          }
+        }
+      }
+
+      setLoadingBooks(true);
+
+      try {
+        const response = await fetch('/api/books-list');
+        if (!response.ok) {
+          throw new Error(`Failed to load books: ${response.status}`);
+        }
+
+        const data = await response.json();
+        if (!isMounted) return;
+
+        const nextBooks = Array.isArray(data.books) ? data.books : [];
+        setLoadedBooks(nextBooks);
+        if (typeof window !== 'undefined') {
+          window.sessionStorage.setItem(BOOKS_LIST_CACHE_KEY, JSON.stringify(nextBooks));
+        }
+      } catch (error) {
+        console.error('Failed to load book list', error);
+        if (isMounted) {
+          setLoadedBooks([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoadingBooks(false);
+        }
+      }
+    };
+
+    loadBooks();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const locationOptions = useMemo(() => {
     const counts = new Map();
@@ -160,8 +217,7 @@ export default function BooksList({ books }) {
       const img = new window.Image();
       img.src = src;
     });
-    booksContext?.cacheImages(likelyImages);
-  }, [likelyImages, booksContext]);
+  }, [likelyImages]);
   
   const columns = [
     {
@@ -336,13 +392,17 @@ export default function BooksList({ books }) {
           backgroundColor: '#fff',
         }}
       >
+        {loadingBooks ? (
+          <Box sx={{ p: 3, color: 'text.secondary' }}>Loading books...</Box>
+        ) : null}
         <DataGrid
           rows={filteredRows}
           columns={columns}
           autoHeight
+          disableVirtualization
           rowHeight={106}
           paginationModel={paginationModel}
-          onPaginationModelChange={setPaginationModel}
+          onPaginationModelChange={handlePaginationModelChange}
           pageSizeOptions={[7, 10, 25, 50, 100]}
           disableRowSelectionOnClick
           hideFooterSelectedRowCount
@@ -383,21 +443,4 @@ export default function BooksList({ books }) {
       </Paper>
     </Box>
   );
-}
-
-export async function getStaticProps() {
-  try {
-    const books = await getAllBooksForList();
-
-    return {
-      props: { books },
-      revalidate: 60,
-    };
-  } catch (error) {
-    console.error('Static fetch error:', error);
-    return {
-      props: { books: [] },
-      revalidate: 30,
-    };
-  }
 }
