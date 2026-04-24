@@ -79,6 +79,8 @@ export default function BooksList({ books }) {
     pageSize: 7,
   });
 
+  const [sortBy, setSortBy] = useState('title-asc');
+
   const handlePaginationModelChange = useCallback((nextModel) => {
     setPaginationModel((current) => {
       if (
@@ -169,7 +171,7 @@ export default function BooksList({ books }) {
   const filteredRows = useMemo(() => {
     const query = search.trim().toLowerCase();
 
-    return rows.filter((book) => {
+    let filtered = rows.filter((book) => {
       const bookLocation = book.locationName?.trim() || 'No location';
       const matchesLocation = effectiveLocation === 'all' || bookLocation === effectiveLocation;
 
@@ -192,7 +194,49 @@ export default function BooksList({ books }) {
 
       return haystack.includes(query);
     });
-  }, [rows, search, effectiveLocation]);
+
+    // Sort filtered results
+    const sorted = [...filtered];
+    const [field, dir] = sortBy.split('-');
+    const isAsc = dir === 'asc';
+
+    const getLastName = (author) => {
+      const parts = String(author || '').trim().split(/\s+/);
+      return parts[parts.length - 1].toLowerCase();
+    };
+
+    sorted.sort((a, b) => {
+      let aVal, bVal;
+      switch (field) {
+        case 'title':
+          aVal = String(a.title || '').toLowerCase();
+          bVal = String(b.title || '').toLowerCase();
+          break;
+        case 'author':
+          aVal = Array.isArray(a.authors) && a.authors[0] ? getLastName(a.authors[0]) : '';
+          bVal = Array.isArray(b.authors) && b.authors[0] ? getLastName(b.authors[0]) : '';
+          break;
+        case 'publisher':
+          aVal = String(a.publisher || '').toLowerCase();
+          bVal = String(b.publisher || '').toLowerCase();
+          break;
+        case 'date':
+          aVal = parseInt(String(a.publishedDate || '0').substring(0, 4));
+          bVal = parseInt(String(b.publishedDate || '0').substring(0, 4));
+          break;
+        default:
+          aVal = String(a.title || '').toLowerCase();
+          bVal = String(b.title || '').toLowerCase();
+          break;
+      }
+
+      if (aVal < bVal) return isAsc ? -1 : 1;
+      if (aVal > bVal) return isAsc ? 1 : -1;
+      return 0;
+    });
+
+    return sorted;
+  }, [rows, search, effectiveLocation, sortBy]);
 
   const visibleRows = useMemo(() => {
     const start = paginationModel.page * paginationModel.pageSize;
@@ -275,9 +319,10 @@ export default function BooksList({ books }) {
                 mt: 0,
                 width: '100%',
                 minWidth: 0,
-                whiteSpace: 'nowrap',
                 overflow: 'hidden',
-                textOverflow: 'ellipsis',
+                display: '-webkit-box',
+                WebkitLineClamp: 2,
+                WebkitBoxOrient: 'vertical',
                 lineHeight: 1.3,
                 color: 'text.secondary',
                 fontSize: '0.79rem',
@@ -293,7 +338,7 @@ export default function BooksList({ books }) {
             alignItems="flex-end"
             sx={{ minWidth: 170, flexShrink: 0, pt: 0 }}
           >
-            {params.row.locationName ? (
+            {effectiveLocation === 'all' && params.row.locationName ? (
               <Chip
                 label={params.row.locationName}
                 size="small"
@@ -407,6 +452,33 @@ export default function BooksList({ books }) {
         {loadingBooks ? (
           <Box sx={{ p: 3, color: 'text.secondary' }}>Loading books...</Box>
         ) : null}
+        <Box sx={{ px: 2, pt: 2, pb: 1, display: 'flex', justifyContent: 'flex-end' }}>
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>Sort by:</Typography>
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value)}
+              style={{
+                padding: '6px 12px',
+                borderRadius: '4px',
+                border: '1px solid rgba(17, 24, 39, 0.12)',
+                backgroundColor: '#fff',
+                fontSize: '0.875rem',
+                fontFamily: 'inherit',
+                cursor: 'pointer',
+              }}
+            >
+              <option value="title-asc">Title (A→Z)</option>
+              <option value="title-desc">Title (Z→A)</option>
+              <option value="author-asc">Author (A→Z)</option>
+              <option value="author-desc">Author (Z→A)</option>
+              <option value="publisher-asc">Publisher (A→Z)</option>
+              <option value="publisher-desc">Publisher (Z→A)</option>
+              <option value="date-asc">Oldest First</option>
+              <option value="date-desc">Newest First</option>
+            </select>
+          </Box>
+        </Box>
         <DataGrid
           rows={filteredRows}
           columns={columns}
@@ -435,9 +507,7 @@ export default function BooksList({ books }) {
             width: '100%',
             fontSize: '0.85rem',
             '& .MuiDataGrid-columnHeaders': {
-              fontSize: '0.78rem',
-              backgroundColor: '#f7f4ec',
-              borderBottom: '1px solid rgba(17, 24, 39, 0.06)'
+              display: 'none',
             },
             '& .MuiDataGrid-cell': {
               fontSize: '0.85rem',
